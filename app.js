@@ -40,9 +40,9 @@ const norm = s => String(s||"").toLowerCase().replace(/^\s*coach\s+/,"").replace
 /* ---------- Supabase data layer ---------- */
 const sb = window.supabase.createClient(CFG.url, CFG.key, { auth: { persistSession: true, autoRefreshToken: true } });
 const toKid = r => ({ id: r.id, cid: r.coach_id, name: r.name, dob: r.dob || "", age: r.age || "", level: r.level, sessions: r.sessions || [],
-  group: r.group_note || "", ptType: r.pt_type || "", active: r.active, last: r.last || null, term: r.term || "" });
-const KIDMAP = { name:"name", dob:"dob", age:"age", level:"level", sessions:"sessions", group:"group_note", ptType:"pt_type", active:"active", last:"last", term:"term" };
-const kidOut = d => { const o = {}; for (const k in KIDMAP) if (k in d) o[KIDMAP[k]] = (k === "dob" && !d[k]) ? null : d[k]; return o; };
+  group: r.group_note || "", ptType: r.pt_type || "", active: r.active, last: r.last || null, term: r.term || "", startDate: r.start_date || "", paidClasses: r.paid_classes ?? null });
+const KIDMAP = { name:"name", dob:"dob", age:"age", level:"level", sessions:"sessions", group:"group_note", ptType:"pt_type", active:"active", last:"last", term:"term", startDate:"start_date", paidClasses:"paid_classes" };
+const kidOut = d => { const o = {}; for (const k in KIDMAP) if (k in d) o[KIDMAP[k]] = ((k === "dob" || k === "startDate") && !d[k]) ? null : d[k]; return o; };
 const toRep = r => ({ ...(r.data || {}), week: r.week, kidId: r.swimmer_id, level: r.level, done: r.done,
   reviewedAt: r.reviewed_at ? Date.parse(r.reviewed_at) : null, reviewedBy: r.reviewed_by || null });
 const Store = {
@@ -125,7 +125,7 @@ async function loadBase(){
     sb.from("acad_coaches").select("*"), sb.from("acad_swimmers").select("*").limit(5000),
     sb.from("acad_staff").select("*"), sb.from("acad_settings").select("*") ]);
   const err = c.error || k.error || st.error || se.error; if (err) { setStatus(err); throw err; }
-  S.coaches = {}; c.data.forEach(r => { S.coaches[r.id] = { displayName: r.display_name, userId: r.user_id, placeholder: !r.user_id }; });
+  S.coaches = {}; c.data.forEach(r => { S.coaches[r.id] = { displayName: r.display_name, userId: r.user_id, placeholder: !r.user_id, partTime: !!r.part_time, classMinutes: r.class_minutes || 30 }; });
   S.kids = {}; k.data.forEach(r => { const kd = toKid(r); S.kids[`${kd.cid}/${kd.id}`] = kd; });
   S.staff = {}; st.data.forEach(r => { S.staff[r.user_id] = { title: r.role[0].toUpperCase() + r.role.slice(1), name: r.display_name, email: r.email, active: r.active, managed: r.managed }; });
   se.data.forEach(r => { if (r.key === "term") S.term = r.value; if (r.key === "programs") { S.programs = r.value; applyPrograms(r.value); } });
@@ -177,6 +177,7 @@ function renderTop(){
   }
   $("#vSwimmers").classList.toggle("hide", S.view !== "swimmers");
   $("#vOverview").classList.toggle("hide", S.view !== "overview");
+  $("#vTimesheet")?.classList.toggle("hide", S.view !== "timesheet");
 }
 function renderLevels(){
   const grp = LEVELS[S.level-1].group;
@@ -245,7 +246,7 @@ function renderOverview(){
     </tbody></table></div>`;
 }
 let rq = 0;
-function render(){ if (S.blocked || rq) return; rq = requestAnimationFrame(() => { rq = 0; if (S.blocked) return; renderTop(); renderLevels(); if (S.view === "overview") renderOverview(); else renderList(); }); }
+function render(){ if (S.blocked || rq) return; rq = requestAnimationFrame(() => { rq = 0; if (S.blocked) return; renderTop(); renderLevels(); if (S.view === "overview") renderOverview(); else if (S.view === "timesheet") { if (window.VXP) VXP.renderTimesheet(); } else renderList(); }); }
 
 /* ---------- sheets ---------- */
 let closeHook = null;
@@ -620,6 +621,7 @@ function openKid(key){
   <div class="sh-foot">
     <button class="btn" id="pdfOne"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-5-5m5 5l5-5M4 21h16"/></svg>PDF</button>
     ${mgmt() ? `<button class="btn" id="revBtn">${r.reviewedAt ? "Undo review" : "Mark reviewed"}</button>` : ""}
+    <button class="btn" id="profBtn">Profile</button>
     <span class="sp"></span>
     <button class="btn primary" id="doneBtn">${nextKid() ? "Mark done & next swimmer" : "Mark done"}</button>
   </div>`);
@@ -628,6 +630,7 @@ function openKid(key){
     b.innerHTML = `<h3>Parent contact <small>management only</small></h3>` + (c.phones||[]).map(p => `<div class="as"><span>${esc(p)}</span><a class="btn" href="tel:+${wa(p)}">Call</a><a class="btn" href="https://wa.me/${wa(p)}" target="_blank" rel="noopener">WhatsApp</a></div>`).join("") +
       (c.email ? `<div class="as"><span>${esc(c.email)}</span><a class="btn" href="mailto:${esc(c.email)}">Email</a></div>` : "");
     b.classList.remove("hide"); }).catch(() => {});
+  $("#profBtn").onclick = async () => { if (editable) await flush(); closeHook = null; if (window.VXP) VXP.open(key); };
   if (!editable) return;
   const sh = $("#layer .sheet");
   const moveUp = () => { const w = $("#moveWrap"), cur = S.kids[key];
@@ -752,6 +755,8 @@ $("#coachSel").onchange = e => { S.coachSel = e.target.value; ls.set("vx_cf", S.
 $("#wPrev").onclick = () => changeWeek(-1); $("#wNext").onclick = () => changeWeek(1);
 $("#meBtn").onclick = askName; $("#teamBtn").onclick = () => adminSheet("people");
 $("#addBtn").onclick = addKids; $("#notesBtn").onclick = groupNotes; $("#attBtn").onclick = attendance; $("#dlAllBtn").onclick = downloadAll;
+
+window.VX = { S, sb, esc, openSheet, closeSheet, head, toast, mgmt, coachName, ageOf, fmtTime, timeVal, fromIso, iso, sundayOf, weekLabel, MON, DAYS, norm, visibleCoachIds, toRep, downloadPdfs, deliver, render };
 
 /* ---------- account, login, boot ---------- */
 function askName(){
