@@ -179,6 +179,7 @@ function renderTop(){
   $("#vOverview").classList.toggle("hide", S.view !== "overview");
   $("#vTimesheet")?.classList.toggle("hide", S.view !== "timesheet");
   $("#vDeck")?.classList.toggle("hide", S.view !== "deck");
+  $("#vCal")?.classList.toggle("hide", S.view !== "calendar");
 }
 function renderLevels(){
   const grp = LEVELS[S.level-1].group;
@@ -247,7 +248,7 @@ function renderOverview(){
     </tbody></table></div>`;
 }
 let rq = 0;
-function render(){ if (S.blocked || rq) return; rq = requestAnimationFrame(() => { rq = 0; if (S.blocked) return; renderTop(); renderLevels(); if (S.view === "overview") renderOverview(); else if (S.view === "timesheet") { if (window.VXP) VXP.renderTimesheet(); } else if (S.view === "deck") { if (window.VXD) VXD.render(); } else renderList(); }); }
+function render(){ if (S.blocked || rq) return; rq = requestAnimationFrame(() => { rq = 0; if (S.blocked) return; renderTop(); renderLevels(); if (S.view === "overview") renderOverview(); else if (S.view === "timesheet") { if (window.VXP) VXP.renderTimesheet(); } else if (S.view === "deck") { if (window.VXD) VXD.render(); } else if (S.view === "calendar") { if (window.VXC) VXC.render(); } else renderList(); }); }
 
 /* ---------- sheets ---------- */
 let closeHook = null;
@@ -755,9 +756,10 @@ $("#mgBar").addEventListener("click", e => { const b = e.target.closest("[data-v
 $("#coachSel").onchange = e => { S.coachSel = e.target.value; ls.set("vx_cf", S.coachSel); render(); };
 $("#wPrev").onclick = () => changeWeek(-1); $("#wNext").onclick = () => changeWeek(1);
 $("#meBtn").onclick = askName; $("#teamBtn").onclick = () => adminSheet("people");
-$("#addBtn").onclick = addKids; $("#deckBtn") && ($("#deckBtn").onclick = () => { S.view = "deck"; render(); window.scrollTo(0, 0); }); $("#notesBtn").onclick = groupNotes; $("#attBtn").onclick = attendance; $("#dlAllBtn").onclick = downloadAll;
+$("#addBtn").onclick = addKids; $("#deckBtn") && ($("#deckBtn").onclick = () => { S.view = "deck"; render(); window.scrollTo(0, 0); }); $("#calBtn") && ($("#calBtn").onclick = () => { S.view = "calendar"; render(); window.scrollTo(0, 0); }); $("#notesBtn").onclick = groupNotes; $("#attBtn").onclick = attendance; $("#dlAllBtn").onclick = downloadAll;
 
-window.VX = { S, sb, esc, openSheet, closeSheet, head, toast, mgmt, coachName, ageOf, fmtTime, timeVal, fromIso, iso, sundayOf, weekLabel, MON, DAYS, norm, visibleCoachIds, toRep, downloadPdfs, deliver, render, groupOf, loadBase };
+window.VX = { S, sb, esc, openSheet, closeSheet, head, toast, mgmt, coachName, ageOf, fmtTime, timeVal, fromIso, iso, sundayOf, weekLabel, MON, DAYS, norm, visibleCoachIds, toRep, downloadPdfs, deliver, render, groupOf, loadBase,
+  goDay: ds => { const d = fromIso(ds); S.week = iso(sundayOf(d)); S.reports = {}; S.notes = {}; S.day = DAYS[d.getDay()]; ls.set("vx_day", S.day); S.view = "swimmers"; render(); loadWeek(); window.scrollTo(0, 0); } };
 
 /* ---------- account, login, boot ---------- */
 function askName(){
