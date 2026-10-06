@@ -696,10 +696,10 @@ async function deliver(filename, blob){
   const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = filename; document.body.appendChild(a); a.click();
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
 }
-async function downloadPdfs(items, mode){
+async function downloadPdfs(items, mode, tagIn){
   if (!(await ensureFonts())) toast("Using a standard font – the brand font couldn't load");
   const JsPDF = window.jspdf && window.jspdf.jsPDF; if (!JsPDF) return toast("The PDF tool didn't load – reload the page");
-  const wk = S.week, tag = `${LEVELS[S.level-1].short} ${LEVELS[S.level-1].name} – Week of ${wk}`;
+  const wk = S.week, tag = tagIn || `${LEVELS[S.level-1].short} ${LEVELS[S.level-1].name} – Week of ${wk}`;
   if (mode === "single") { const { kid, r } = items[0]; return deliver(`${safeName(kid.name)} – Week of ${wk}.pdf`, PDFGEN.build(JsPDF, [reportData(kid, r)]).output("blob")); }
   if (mode === "zip") {
     if (!window.JSZip) return toast("The ZIP tool didn't load – reload the page");
@@ -707,21 +707,36 @@ async function downloadPdfs(items, mode){
     items.forEach(({kid, r}) => z.file(`${multi ? safeName(coachName(kid.cid)) + "/" : ""}${safeName(kid.name)} – Week of ${wk}.pdf`, PDFGEN.build(JsPDF, [reportData(kid, r)]).output("arraybuffer")));
     return deliver(`${tag}.zip`, await z.generateAsync({ type:"blob" }));
   }
-  return deliver(`${tag} (print).pdf`, PDFGEN.build(JsPDF, items.map(({kid, r}) => reportData(kid, r))).output("blob"));
+  return deliver(`${tag}.pdf`, PDFGEN.build(JsPDF, items.map(({kid, r}) => reportData(kid, r))).output("blob"));
 }
 function downloadAll(){
-  const ks = kidsInLevel(S.level); if (!ks.length) return toast("No swimmers in this level yet");
-  const done = ks.filter(isDone);
-  openSheet(`${head("Download reports", `${LEVELS[S.level-1].short} · ${weekLabel(S.week)}${mgmt() ? " · " + (S.coachSel==="all" ? "all coaches" : coachName(S.coachSel)) : ""}`, S.level)}<div class="sh-body"><div class="box">
-    <div class="seg" role="group" aria-label="Which swimmers" style="margin-bottom:12px"><button id="dDone">Done (${done.length})</button><button id="dAll">Everyone (${ks.length})</button></div>
-    <button class="btn" id="dZip" style="width:100%;justify-content:flex-start;padding:14px;margin-bottom:8px"><span style="text-align:left"><b style="display:block">One PDF per swimmer</b><span class="note">A ZIP to send each family their own report</span></span></button>
-    <button class="btn" id="dPrint" style="width:100%;justify-content:flex-start;padding:14px"><span style="text-align:left"><b style="display:block">One file to print</b><span class="note">Every swimmer on its own page</span></span></button>
+  const lvKids = kidsInLevel(S.level);
+  const allKids = LEVELS.flatMap((_, i) => kidsInLevel(i + 1));
+  if (!allKids.length) return toast("No swimmers yet");
+  let scope = lvKids.length ? "level" : "all", which = "done";
+  const L = LEVELS[S.level-1], who = mgmt() ? " · " + (S.coachSel === "all" ? "all coaches" : coachName(S.coachSel)) : "", dayTxt = S.day !== "all" ? ` · ${S.day} only` : "";
+  openSheet(`${head("Download reports", `${weekLabel(S.week)}${who}${dayTxt}`, S.level)}<div class="sh-body"><div class="box">
+    <p class="note" style="margin:0 0 6px">Which levels</p>
+    <div class="seg" role="group" aria-label="Which levels" style="margin-bottom:12px;flex-wrap:wrap"><button id="sLv">${esc(L.short)} only (${lvKids.length})</button><button id="sAll">All levels & programmes (${allKids.length})</button></div>
+    <p class="note" style="margin:0 0 6px">Which reports</p>
+    <div class="seg" role="group" aria-label="Which swimmers" style="margin-bottom:14px"><button id="dDone"></button><button id="dAll"></button></div>
+    <button class="btn" id="dPrint" style="width:100%;justify-content:flex-start;padding:14px;margin-bottom:8px"><span style="text-align:left"><b style="display:block">One PDF with all reports</b><span class="note">Every swimmer on their own page, sorted by level then name</span></span></button>
+    <button class="btn" id="dZip" style="width:100%;justify-content:flex-start;padding:14px"><span style="text-align:left"><b style="display:block">One PDF per swimmer</b><span class="note">A ZIP to send each family their own report</span></span></button>
+    <p class="note" id="dWarn"></p>
   </div></div>`, true);
-  let which = done.length ? "done" : "all";
-  const sync = () => { $("#dDone").setAttribute("aria-pressed", which==="done"); $("#dAll").setAttribute("aria-pressed", which==="all"); };
-  sync(); $("#dDone").onclick = () => { which = "done"; sync(); }; $("#dAll").onclick = () => { which = "all"; sync(); };
-  const items = () => (which === "done" ? done : ks).map(k => ({ kid:k, r:getReport(k) }));
-  const go = mode => async () => { const it = items(); if (!it.length) return toast("No reports marked done yet"); closeSheet(); toast("Preparing PDFs…"); await downloadPdfs(it, mode); };
+  const base = () => scope === "all" ? allKids : lvKids;
+  const sync = () => { const b = base(), d = b.filter(isDone).length;
+    $("#sLv").setAttribute("aria-pressed", scope === "level"); $("#sAll").setAttribute("aria-pressed", scope === "all");
+    $("#dDone").textContent = `Done (${d})`; $("#dAll").textContent = `Everyone (${b.length})`;
+    $("#dDone").setAttribute("aria-pressed", which === "done"); $("#dAll").setAttribute("aria-pressed", which === "all");
+    $("#dWarn").textContent = which === "all" && b.length - d ? `${b.length - d} report${b.length - d === 1 ? " isn't" : "s aren't"} marked done – they'll print with what has been filled in so far.` : ""; };
+  if (!base().some(isDone)) which = "all"; sync();
+  $("#sLv").onclick = () => { scope = "level"; sync(); }; $("#sAll").onclick = () => { scope = "all"; sync(); };
+  $("#dDone").onclick = () => { which = "done"; sync(); }; $("#dAll").onclick = () => { which = "all"; sync(); };
+  const items = () => { const b = base(); return (which === "done" ? b.filter(isDone) : b).map(k => ({ kid:k, r:getReport(k) })); };
+  const go = mode => async () => { const it = items(); if (!it.length) return toast(which === "done" ? "No reports marked done yet" : "No swimmers here");
+    const tag = (scope === "all" ? "All levels" : `${L.short} ${L.name}`) + (mgmt() && S.coachSel !== "all" ? ` – ${coachName(S.coachSel)}` : "") + ` – Week of ${S.week}`;
+    closeSheet(); toast(it.length > 60 ? `Preparing ${it.length} reports – this can take a minute…` : "Preparing PDFs…"); await downloadPdfs(it, mode, tag); };
   $("#dZip").onclick = go("zip"); $("#dPrint").onclick = go("print");
 }
 
