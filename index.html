@@ -30,7 +30,7 @@
 <nav class="levels" aria-label="Levels"><div class="groups" id="groups" role="group" aria-label="Programme"></div><div class="levels-in" id="levels"></div></nav>
 <main id="main">
   <div class="bar hide" id="mgBar">
-    <div class="seg" role="group" aria-label="View"><button data-view="swimmers" aria-pressed="true">Swimmers</button><button data-view="overview" aria-pressed="false">Coaches overview</button><button data-view="timesheet" aria-pressed="false">Timesheets</button></div>
+    <div class="seg" role="group" aria-label="View"><button data-view="swimmers" aria-pressed="true">Swimmers</button><button data-view="overview" aria-pressed="false">Coaches overview</button><button data-view="deck" aria-pressed="false">Decksheets</button><button data-view="timesheet" aria-pressed="false">Timesheets</button></div>
     <select class="sel" id="coachSel" aria-label="Coach"></select>
     <div class="tools"><button class="btn" id="teamBtn" aria-label="Team and settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5M16 4.5a3.5 3.5 0 010 7M18.5 14.8c1.6.8 2.7 2.6 3 5.2"/></svg><span id="teamLbl">Team</span></button></div>
   </div>
@@ -38,6 +38,7 @@
     <div class="bar">
       <div><h1 id="lvTitle"></h1><div class="sub" id="lvSub"></div></div>
       <div class="tools">
+        <button class="btn" id="deckBtn" aria-label="Decksheet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 9v12"/></svg><span>Decksheet</span></button>
         <button class="btn" id="attBtn" aria-label="Attendance"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="3"/><path d="M3 9h18M8 2v4M16 2v4M8 14l2.5 2.5L16 12"/></svg><span>Attendance</span></button>
         <button class="btn" id="notesBtn" aria-label="Group notes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h16M4 10h16M4 15h10M4 20h7"/></svg><span>Group notes</span></button>
         <button class="btn dark" id="dlAllBtn" aria-label="Download reports"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-5-5m5 5l5-5M4 21h16"/></svg><span>Download reports</span></button>
@@ -53,6 +54,7 @@
   </section>
   <section id="vOverview" class="hide"></section>
   <section id="vTimesheet" class="hide"></section>
+  <section id="vDeck" class="hide"></section>
 </main>
 <div id="layer"></div>
 
@@ -66,5 +68,6 @@
 <script src="/pdfgen.js"></script>
 <script src="/app.js"></script>
 <script src="/profile.js"></script>
+<script src="/deck.js"></script>
 </body>
 </html>

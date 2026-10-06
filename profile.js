@@ -48,12 +48,12 @@ async function open(key){
     <div class="box"><h3>Schedule</h3><div class="schedlist" style="margin-top:0">${sched}</div></div>
     ${mg ? `<div class="box" style="--c:var(--royal)"><h3>Classes</h3>
       <div class="kpis" style="grid-template-columns:repeat(3,1fr);margin:0 0 10px">
-        <div class="kpi"><b>${kid.paidClasses ?? "–"}</b><span>Paid</span></div>
+        <div class="kpi"><b style="color:${kid.paid === true ? "#06704f" : kid.paid === false ? "#b4231f" : "inherit"}">${kid.paid === true ? "Paid" : kid.paid === false ? "Not paid" : "–"}</b><span>Payment</span></div>
         <div class="kpi"><b>${attended.length}</b><span>Attended</span></div>
-        <div class="kpi"><b>${kid.paidClasses != null ? Math.max(kid.paidClasses - attended.length, 0) : "–"}</b><span>Remaining</span></div></div>
+        <div class="kpi"><b>${booked}</b><span>Booked this term</span></div></div>
       <p class="note" style="margin:0 0 10px">Booked from the start date to the end of term: ${booked} classes · ${soFar} of them up to today.</p>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
-        <label class="f">Paid classes<input class="inp" id="pfPaid" inputmode="numeric" value="${kid.paidClasses ?? ""}" style="width:110px"></label>
+        <label class="f">Payment<select class="inp" id="pfPaid" style="width:130px"><option value="">Not set</option><option value="1" ${kid.paid === true ? "selected" : ""}>Paid</option><option value="0" ${kid.paid === false ? "selected" : ""}>Not paid</option></select></label>
         <label class="f">Start date<input class="inp" type="date" id="pfStart" value="${esc(kid.startDate || "")}"></label>
         <button class="btn primary" id="pfSave">Save</button></div></div>` : ""}
     <div class="box" style="--c:var(--sky)"><h3>Attended classes <small>${attended.length}</small></h3>
@@ -70,11 +70,10 @@ async function open(key){
   const sv = document.getElementById("pfSave");
   if (sv) sv.onclick = async () => {
     const p = document.getElementById("pfPaid").value.trim(), s = document.getElementById("pfStart").value;
-    if (p && !/^\d+$/.test(p)) return V.toast("Paid classes must be a whole number");
-    const upd = { paid_classes: p === "" ? null : +p, start_date: s || null };
+    const upd = { paid: p === "" ? null : p === "1", start_date: s || null };
     const { error } = await V.sb.from("acad_swimmers").update(upd).eq("id", kid.id);
     if (error) return V.toast("Not saved – " + error.message);
-    kid.paidClasses = upd.paid_classes; kid.startDate = s || ""; V.toast("Saved"); open(key);
+    kid.paid = upd.paid; kid.startDate = s || ""; V.toast("Saved"); open(key);
   };
 }
 
@@ -130,7 +129,7 @@ function renderTimesheet(){
   const hrs = m => (Math.round(m / 6) / 10).toLocaleString();
   if (!T.coach) {
     const rows = shown.map(id => { const cl = classesFor(id, T.from, T.to, T.reps), del = cl.filter(c => c.status === "Delivered").length,
-      past = cl.filter(c => c.status !== "Upcoming").length, mins = C(id).classMinutes || 30;
+      past = cl.filter(c => c.status !== "Upcoming").length, mins = C(id).classMinutes || 40;
       return `<tr class="click" data-tsc="${esc(id)}"><td><b>${esc(V.coachName(id))}</b><br><span class="note">${C(id).partTime ? "Part-time" : "Full-time"} · ${mins} min classes</span></td>
         <td>${cl.length}</td><td>${del}</td><td>${past - del}</td><td><b>${hrs(del * mins)}</b></td></tr>`; }).join("");
     el.innerHTML = head + `${T.err ? `<p class="note">Couldn't load attendance: ${esc(T.err)}</p>` : ""}
@@ -138,7 +137,7 @@ function renderTimesheet(){
       ${rows || `<tr><td colspan="5" class="empty">${T.only === "part" ? "No coaches are marked part-time yet. Choose All coaches, open a coach and tick Part-time." : "No coaches yet."}</td></tr>`}</tbody></table></div>
       <p class="note">Delivered = a class where at least one swimmer was marked present. Hours = delivered classes × class length.</p>`;
   } else {
-    const id = T.coach, c = C(id), mins = c.classMinutes || 30, cl = classesFor(id, T.from, T.to, T.reps), del = cl.filter(x => x.status === "Delivered").length;
+    const id = T.coach, c = C(id), mins = c.classMinutes || 40, cl = classesFor(id, T.from, T.to, T.reps), del = cl.filter(x => x.status === "Delivered").length;
     el.innerHTML = head + `
       <div class="bar"><div><h1>${esc(V.coachName(id))}</h1><div class="sub">${esc(fmtDate(T.from))} – ${esc(fmtDate(T.to))}</div></div>
         <div class="tools"><button class="btn dark" id="tsXls">Download Excel</button></div></div>
@@ -168,7 +167,7 @@ function wire(el){
     Object.assign(V.S.coaches[T.coach], { partTime: q("#tsPart").checked, classMinutes: m }); V.toast("Saved"); V.render(); };
   if (q("#tsXls")) q("#tsXls").onclick = () => {
     if (!window.XLSX) return V.toast("The Excel tool didn't load – reload the page");
-    const id = T.coach, mins = (V.S.coaches[id] || {}).classMinutes || 30, cl = classesFor(id, T.from, T.to, T.reps);
+    const id = T.coach, mins = (V.S.coaches[id] || {}).classMinutes || 40, cl = classesFor(id, T.from, T.to, T.reps);
     const rows = [["Coach", V.coachName(id)], ["From", T.from, "To", T.to], [], ["Date", "Day", "Time", "Swimmers", "Attended", "Status", "Minutes"]]
       .concat(cl.map(x => [x.date, WD[V.fromIso(x.date).getDay()], V.fmtTime(x.time), x.swimmers, x.status === "Upcoming" ? "" : x.att, x.status, x.status === "Delivered" ? mins : 0]));
     const del = cl.filter(x => x.status === "Delivered").length; rows.push([], ["Delivered classes", del], ["Total hours", Math.round(del * mins / 6) / 10]);
