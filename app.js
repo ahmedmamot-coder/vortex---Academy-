@@ -766,6 +766,7 @@ $("#meBtn").onclick = askName; $("#teamBtn").onclick = () => adminSheet("people"
 $("#addBtn").onclick = addKids; $("#deckBtn") && ($("#deckBtn").onclick = () => { S.view = "deck"; render(); window.scrollTo(0, 0); }); $("#calBtn") && ($("#calBtn").onclick = () => { S.view = "calendar"; render(); window.scrollTo(0, 0); }); $("#notesBtn").onclick = groupNotes; $("#attBtn").onclick = attendance; $("#dlAllBtn").onclick = downloadAll;
 
 window.VX = { S, sb, esc, openSheet, closeSheet, head, toast, mgmt, coachName, ageOf, fmtTime, timeVal, fromIso, iso, sundayOf, weekLabel, MON, DAYS, norm, visibleCoachIds, toRep, downloadPdfs, deliver, render, groupOf, loadBase,
+  goWeek: ws => { S.week = iso(sundayOf(fromIso(ws))); S.reports = {}; S.notes = {}; S.view = "swimmers"; render(); loadWeek(); },
   goDay: ds => { const d = fromIso(ds); S.week = iso(sundayOf(d)); S.reports = {}; S.notes = {}; S.day = DAYS[d.getDay()]; ls.set("vx_day", S.day); S.view = "swimmers"; render(); loadWeek(); window.scrollTo(0, 0); } };
 
 /* ---------- account, login, boot ---------- */
@@ -789,7 +790,7 @@ function showLogin(msg, signedIn){
   const login = () => `
     <form class="auth-card" id="lf" autocomplete="on">
       <img src="${ASSETS.logoURL}" alt="">
-      <small>VORTEX SWIMMING ACADEMY</small><h1>Weekly reports</h1>
+      <small>VORTEX AQUATICS</small><h1>Swimming Academy</h1>
       ${msg ? `<p class="auth-msg">${esc(msg)}</p>` : ""}
       ${signedIn ? `<button class="btn primary" type="button" id="lo">Sign in with another account</button>` : `
       <label class="f">Email<input class="inp" id="le" type="email" autocomplete="username" required></label>

@@ -87,5 +87,48 @@ function openDay(ds){
   </div><div class="sh-foot"><span class="sp"></span><button class="btn primary" id="clOpenWeek">Open this week's reports</button></div>`);
   document.getElementById("clOpenWeek").onclick = () => { V.closeSheet(); V.goDay(ds); };
 }
-window.VXC = { render };
+/* ---------- week picker (tap the week in the header) ---------- */
+const PK = { month: "" };
+function pick(){
+  const V = X(), esc = V.esc, tr = term(), sel = V.S.week, today = ymd(new Date()), thisWk = ymd(V.sundayOf(new Date()));
+  if (!PK.month) PK.month = sel.slice(0, 7);
+  const [y, m] = PK.month.split("-").map(Number), first = new Date(y, m - 1, 1), last = new Date(y, m, 0);
+  const tStart = tr.start ? ymd(V.sundayOf(V.fromIso(tr.start))) : "";
+  const pd = s => { const d = V.fromIso(s); return `${d.getDate()} ${V.MON[d.getMonth()]} ${d.getFullYear()}`; };
+  const wkNo = s => { if (!tStart || s < tStart || (tr.end && s > tr.end)) return ""; return Math.round((V.fromIso(s) - V.fromIso(tStart)) / 6048e5) + 1; };
+  let rows = "";
+  for (let w = V.sundayOf(first); w <= last; w.setDate(w.getDate() + 7)) {
+    const ws = ymd(w), n = wkNo(ws), on = ws === sel;
+    let cells = "";
+    for (let i = 0; i < 7; i++) { const d = new Date(w); d.setDate(d.getDate() + i); const ds = ymd(d);
+      cells += `<span style="text-align:center;padding:7px 0;border-radius:8px;${d.getMonth() !== m - 1 ? "opacity:.35;" : ""}${ds === today ? "box-shadow:inset 0 0 0 2px var(--sky);" : ""}">${d.getDate()}</span>`; }
+    rows += `<button data-pw="${ws}" style="display:grid;grid-template-columns:64px repeat(7,1fr);align-items:center;width:100%;border:0;border-radius:12px;padding:2px 4px;margin:2px 0;font-size:14px;cursor:pointer;
+      background:${on ? "var(--royal)" : n ? "var(--surface)" : "transparent"};color:${on ? "#fff" : "var(--ink)"};${n || on ? "" : "opacity:.6"}">
+      <span style="font-size:11px;font-weight:600;color:${on ? "#fff" : n ? "var(--sky)" : "var(--muted)"};text-align:left;padding-left:6px">${n ? "Week " + n : ""}</span>${cells}</button>`;
+  }
+  const months = []; if (tr.start && tr.end) { for (let d = new Date(+tr.start.slice(0, 4), +tr.start.slice(5, 7) - 1, 1); ymd(d) <= tr.end; d.setMonth(d.getMonth() + 1)) months.push(ymd(d).slice(0, 7)); }
+  V.openSheet(`${V.head("Choose a week", `${esc(tr.name)}${tr.start ? ` · ${pd(tr.start)} – ${pd(tr.end)}` : ""}`)}<div class="sh-body">
+    <div class="box">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <button class="btn" id="pkPrev" aria-label="Previous month">‹</button><b style="flex:1;text-align:center;font-size:16px">${V.MON[m - 1]} ${y}</b><button class="btn" id="pkNext" aria-label="Next month">›</button></div>
+      ${months.length ? `<div class="seg" role="group" aria-label="Term months" style="margin-bottom:10px;flex-wrap:wrap">${months.map(mm => `<button data-pm="${mm}" aria-pressed="${mm === PK.month}">${V.MON[+mm.slice(5) - 1]}</button>`).join("")}</div>` : ""}
+      <div style="display:grid;grid-template-columns:64px repeat(7,1fr);font-size:11px;font-weight:600;color:var(--muted);padding:0 4px 4px"><span></span>${WD.map(d => `<span style="text-align:center">${d}</span>`).join("")}</div>
+      ${rows}
+      <p class="note">Tap a week to open its reports. Blue numbers are term weeks; today is outlined.</p>
+    </div></div>
+    <div class="sh-foot"><button class="btn" id="pkToday">This week</button><span class="sp"></span><button class="btn primary" id="pkCal">Open full term calendar</button></div>`, true);
+  const sh = document.querySelector("#layer .sheet");
+  const go = mm => { PK.month = mm; pick(); };
+  sh.querySelector("#pkPrev").onclick = () => go(ymd(new Date(y, m - 2, 1)).slice(0, 7));
+  sh.querySelector("#pkNext").onclick = () => go(ymd(new Date(y, m, 1)).slice(0, 7));
+  sh.querySelectorAll("[data-pm]").forEach(b => b.onclick = () => go(b.dataset.pm));
+  sh.querySelectorAll("[data-pw]").forEach(b => b.onclick = () => { PK.month = ""; V.closeSheet(); V.goWeek(b.dataset.pw); });
+  sh.querySelector("#pkToday").onclick = () => { PK.month = ""; V.closeSheet(); V.goWeek(thisWk); };
+  sh.querySelector("#pkCal").onclick = () => { PK.month = ""; C.month = sel.slice(0, 7); V.closeSheet(); V.S.view = "calendar"; V.render(); window.scrollTo(0, 0); };
+}
+const wl = document.getElementById("wLabel");
+if (wl) { wl.setAttribute("role", "button"); wl.tabIndex = 0; wl.title = "Open the calendar";
+  wl.addEventListener("click", pick); wl.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pick(); } }); }
+st.textContent += `#wLabel{cursor:pointer;border-radius:10px;padding:4px 8px}#wLabel:hover{background:rgba(255,255,255,.1)}#wLabel em::after{content:" ▾";opacity:.7}`;
+window.VXC = { render, pick };
 })();
