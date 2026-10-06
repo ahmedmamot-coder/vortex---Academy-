@@ -44,6 +44,7 @@ async function open(key){
       ${row("Coach", esc(V.coachName(kid.cid)))}
       ${mg ? row("Term", `${esc(kid.term || tr.name)}${tr.start && tr.end ? ` · ${esc(fmtDate(tr.start))} – ${esc(fmtDate(tr.end))}` : ""}`) : ""}
       ${mg ? row("Start date", start ? esc(fmtDate(start)) + (kid.startDate ? "" : " (term start)") : "Not saved") : ""}
+      ${mg ? `<button class="btn" id="pfReg" style="margin-top:10px">Edit registration</button>` : ""}
     </div>
     <div class="box"><h3>Schedule</h3><div class="schedlist" style="margin-top:0">${sched}</div></div>
     ${mg ? `<div class="box" style="--c:var(--royal)"><h3>Classes</h3>
@@ -67,6 +68,7 @@ async function open(key){
     const r = reports.find(x => x.week === b.dataset.pdf), saved = V.S.week;
     V.S.week = r.week; try { await V.downloadPdfs([{ kid, r: V.toRep(r) }], "single"); } finally { V.S.week = saved; }
   });
+  const rg = document.getElementById("pfReg"); if (rg) rg.onclick = () => { if (window.VXR) VXR.open(kid.id); };
   const sv = document.getElementById("pfSave");
   if (sv) sv.onclick = async () => {
     const p = document.getElementById("pfPaid").value.trim(), s = document.getElementById("pfStart").value;

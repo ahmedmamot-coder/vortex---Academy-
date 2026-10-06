@@ -757,7 +757,7 @@ $("#wPrev").onclick = () => changeWeek(-1); $("#wNext").onclick = () => changeWe
 $("#meBtn").onclick = askName; $("#teamBtn").onclick = () => adminSheet("people");
 $("#addBtn").onclick = addKids; $("#deckBtn") && ($("#deckBtn").onclick = () => { S.view = "deck"; render(); window.scrollTo(0, 0); }); $("#notesBtn").onclick = groupNotes; $("#attBtn").onclick = attendance; $("#dlAllBtn").onclick = downloadAll;
 
-window.VX = { S, sb, esc, openSheet, closeSheet, head, toast, mgmt, coachName, ageOf, fmtTime, timeVal, fromIso, iso, sundayOf, weekLabel, MON, DAYS, norm, visibleCoachIds, toRep, downloadPdfs, deliver, render, groupOf };
+window.VX = { S, sb, esc, openSheet, closeSheet, head, toast, mgmt, coachName, ageOf, fmtTime, timeVal, fromIso, iso, sundayOf, weekLabel, MON, DAYS, norm, visibleCoachIds, toRep, downloadPdfs, deliver, render, groupOf, loadBase };
 
 /* ---------- account, login, boot ---------- */
 function askName(){
