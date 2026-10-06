@@ -29,7 +29,7 @@ const todayLabel = () => { const d = new Date(); return `${d.getDate()} ${MON[d.
 const S = {
   week: iso(sundayOf(new Date())), level: ls.get("vx_level", 1), view: "swimmers", coachSel: ls.get("vx_cf", "all"),
   me: { id:null, mgmt:false, admin:false, coachId:null, name:"", email:"", role:"" }, programs: {},
-  coaches: {}, staff: {}, kids: {}, reports: {}, notes: {}, names: {}, ready: false, blocked: false, term: null, day: ls.get("vx_day", "all"), q: ""
+  coaches: {}, staff: {}, kids: {}, reports: {}, notes: {}, names: {}, ready: false, blocked: false, term: null, day: ls.get("vx_day", "all"), q: "", allLv: ls.get("vx_all", false)
 };
 const mgmt = () => S.me.mgmt;
 const myCoach = () => S.coaches[S.me.coachId] || {};
@@ -148,6 +148,7 @@ function kidsInLevel(lvl, ignoreDay){
   return Object.values(S.kids).filter(k => inScope(k) && ((reportOf(k)?.level ?? k.level) === lvl) && (ignoreDay || onDay(k)))
     .sort((a,b) => a.name.localeCompare(b.name));
 }
+const allLevelKids = ignoreDay => LEVELS.flatMap((_, i) => kidsInLevel(i + 1, ignoreDay)).sort((a,b) => a.name.localeCompare(b.name));
 function statusOf(k){ const r = reportOf(k); return !r ? "todo" : r.reviewedAt ? "rev" : r.done ? "done" : "wip"; }
 const isDone = k => ["done","rev"].includes(statusOf(k));
 function blankReport(kid){
@@ -184,13 +185,17 @@ function renderTop(){
 function renderLevels(){
   const grp = LEVELS[S.level-1].group;
   const gcount = g => LEVELS.reduce((a,L,i) => a + (L.group === g ? kidsInLevel(i+1, true).length : 0), 0);
-  $("#groups").innerHTML = GROUPS.map(g => `<button data-grp="${g.id}" aria-pressed="${g.id===grp && S.view==="swimmers"}">${g.name}<span>${gcount(g.id)}</span></button>`).join("");
-  $("#levels").innerHTML = LEVELS.map((L,i) => {
+  $("#groups").innerHTML = GROUPS.map(g => `<button data-grp="${g.id}" aria-pressed="${!S.allLv && g.id===grp && S.view==="swimmers"}">${g.name}<span>${gcount(g.id)}</span></button>`).join("");
+  const allK = allLevelKids(true), allD = allK.filter(isDone).length;
+  const allTile = `<button class="lv" data-l="all" aria-pressed="${!!S.allLv && S.view==="swimmers"}"><span style="position:absolute;left:8px;top:50%;transform:translateY(-50%);width:58px;height:58px;border-radius:14px;overflow:hidden;display:grid;grid-template-columns:1fr 1fr;gap:2px;background:#fff">${[1,2,3,5].map(n => `<img alt="" src="data:image/jpeg;base64,${ASSETS["thumb"+n]}" style="position:static;transform:none;width:100%;height:100%;border-radius:0;object-fit:cover">`).join("")}</span>
+      <span class="n">Everyone</span><span class="nm">All levels</span><span class="ct">${allK.length ? `${allD} of ${allK.length} done` : "No swimmers yet"}</span></button>`;
+  $("#levels").innerHTML = allTile + LEVELS.map((L,i) => {
     if (L.group !== grp) return "";
     const n = i+1, ks = kidsInLevel(n, true), done = ks.filter(isDone).length;
-    return `<button class="lv" data-l="${n}" aria-pressed="${S.level===n && S.view==="swimmers"}"><img alt="" src="data:image/jpeg;base64,${ASSETS["thumb"+n]}">
+    return `<button class="lv" data-l="${n}" aria-pressed="${!S.allLv && S.level===n && S.view==="swimmers"}"><img alt="" src="data:image/jpeg;base64,${ASSETS["thumb"+n]}">
       <span class="n">${esc(L.short)}</span><span class="nm">${esc(L.name)}</span><span class="ct">${ks.length ? `${done} of ${ks.length} done` : "No swimmers yet"}</span></button>`;
   }).join("");
+  $("#levels").style.gridTemplateColumns = `repeat(${1 + LEVELS.filter(L => L.group === grp).length}, minmax(150px, 1fr))`;
 }
 function renderFilters(){
   const counts = {}; DAYS.forEach(d => counts[d] = Object.values(S.kids).filter(k => inScope(k) && (k.sessions||[]).some(x => x.day === d)).length);
@@ -206,14 +211,14 @@ function renderList(){
   if (!$("#q") || document.activeElement !== $("#q")) renderFilters();
   const L = LEVELS[S.level-1], showCoach = mgmt() && S.coachSel === "all";
   const searching = S.q.trim().length > 0;
-  const ks = searching ? Object.values(S.kids).filter(k => inScope(k) && norm(k.name).includes(norm(S.q))).sort((a,b) => a.name.localeCompare(b.name)) : kidsInLevel(S.level);
-  const all = kidsInLevel(S.level, true), done = all.filter(isDone).length;
-  $("#lvTitle").textContent = searching ? `Search: ${S.q}` : `${L.short} · ${L.name}`;
+  const ks = searching ? Object.values(S.kids).filter(k => inScope(k) && norm(k.name).includes(norm(S.q))).sort((a,b) => a.name.localeCompare(b.name)) : S.allLv ? allLevelKids() : kidsInLevel(S.level);
+  const all = S.allLv ? allLevelKids(true) : kidsInLevel(S.level, true), done = all.filter(isDone).length;
+  $("#lvTitle").textContent = searching ? `Search: ${S.q}` : S.allLv ? "All levels" : `${L.short} · ${L.name}`;
   $("#lvSub").textContent = searching ? `${ks.length} swimmer${ks.length===1?"":"s"} found in all levels` : all.length ? `${done} of ${all.length} reports done this week` : L.goal;
   $("#progBar").style.width = !searching && all.length ? (done/all.length*100)+"%" : "0";
   if (!S.ready) { $("#list").innerHTML = `<div class="empty">Loading swimmers…</div>`; return; }
-  if (!ks.length) { $("#list").innerHTML = `<div class="empty"><b>${searching ? "No swimmer by that name" : S.day !== "all" ? `No ${L.short} swimmers on ${S.day}` : "No swimmers in this level yet"}</b>${searching || S.day !== "all" ? "" : mgmt() && S.coachSel==="all" ? "Import the term sheet in Admin settings, or add swimmers." : "Add your group once – they'll be here every week."}</div>`; return; }
-  const base = k => [k.ptType && `${esc(k.ptType)} PT`, showCoach && esc(coachName(k.cid)), searching && esc(LEVELS[k.level-1].short), ageOf(k) && `Age ${esc(ageOf(k))}`].filter(Boolean);
+  if (!ks.length) { $("#list").innerHTML = `<div class="empty"><b>${searching ? "No swimmer by that name" : S.day !== "all" ? `No ${S.allLv ? "" : L.short + " "}swimmers on ${S.day}` : "No swimmers in this level yet"}</b>${searching || S.day !== "all" ? "" : mgmt() && S.coachSel==="all" ? "Import the term sheet in Admin settings, or add swimmers." : "Add your group once – they'll be here every week."}</div>`; return; }
+  const base = k => [k.ptType && `${esc(k.ptType)} PT`, showCoach && esc(coachName(k.cid)), (searching || S.allLv) && esc(LEVELS[k.level-1].short), ageOf(k) && `Age ${esc(ageOf(k))}`].filter(Boolean);
   if (S.day === "all" || searching) {
     $("#list").innerHTML = ks.map((k,i) => rowHtml(k, i, [...base(k), esc(groupOf(k))].filter(Boolean).join(" · "))).join("");
     return;
@@ -288,6 +293,7 @@ function addKids(){
 }
 
 function groupNotes(){
+  if (S.allLv) return toast("Choose a level first");
   const cid = needCoach(); if (!cid) return;
   const lvl = S.level, L = LEVELS[lvl-1], n = notesFor(cid, lvl);
   openSheet(`${head(`Group notes · ${L.short}`, `${coachName(cid)} · ${weekLabel(S.week)}`, lvl)}<div class="sh-body">
@@ -305,6 +311,7 @@ function groupNotes(){
 }
 
 function attendance(){
+  if (S.allLv) return toast("Choose a level first");
   const cid = needCoach(); if (!cid) return;
   const lvl = S.level, L = LEVELS[lvl-1], ks = kidsInLevel(lvl).filter(k => k.cid === cid);
   if (!ks.length) return toast("Add swimmers to this level first");
@@ -718,7 +725,7 @@ function downloadAll(){
   const lvKids = kidsInLevel(S.level);
   const allKids = LEVELS.flatMap((_, i) => kidsInLevel(i + 1));
   if (!allKids.length) return toast("No swimmers yet");
-  let scope = lvKids.length ? "level" : "all", which = "done";
+  let scope = lvKids.length && !S.allLv ? "level" : "all", which = "done";
   const L = LEVELS[S.level-1], who = mgmt() ? " · " + (S.coachSel === "all" ? "all coaches" : coachName(S.coachSel)) : "", dayTxt = S.day !== "all" ? ` · ${S.day} only` : "";
   openSheet(`${head("Download reports", `${weekLabel(S.week)}${who}${dayTxt}`, S.level)}<div class="sh-body"><div class="box">
     <p class="note" style="margin:0 0 6px">Which levels</p>
@@ -746,10 +753,10 @@ function downloadAll(){
 }
 
 /* ---------- wiring ---------- */
-$("#groups").addEventListener("click", e => { const b = e.target.closest("[data-grp]"); if (!b) return; const i = LEVELS.findIndex(L => L.group === b.dataset.grp); S.level = i + 1; S.view = "swimmers"; ls.set("vx_level", S.level); render(); });
+$("#groups").addEventListener("click", e => { const b = e.target.closest("[data-grp]"); if (!b) return; const i = LEVELS.findIndex(L => L.group === b.dataset.grp); S.level = i + 1; S.allLv = false; ls.set("vx_all", false); S.view = "swimmers"; ls.set("vx_level", S.level); render(); });
 $("#filters").addEventListener("click", e => { const b = e.target.closest("[data-day-f]"); if (!b) return; S.day = b.dataset.dayF; ls.set("vx_day", S.day); render(); });
 $("#filters").addEventListener("input", e => { if (e.target.id !== "q") return; S.q = e.target.value; render(); });
-$("#levels").addEventListener("click", e => { const b = e.target.closest(".lv"); if (!b) return; S.level = +b.dataset.l; S.view = "swimmers"; ls.set("vx_level", S.level); render(); });
+$("#levels").addEventListener("click", e => { const b = e.target.closest(".lv"); if (!b) return; if (b.dataset.l === "all") S.allLv = true; else { S.allLv = false; S.level = +b.dataset.l; } ls.set("vx_all", S.allLv); S.view = "swimmers"; ls.set("vx_level", S.level); render(); });
 $("#list").addEventListener("click", e => { const b = e.target.closest(".row"); if (b) openKid(b.dataset.k); });
 $("#vOverview").addEventListener("click", e => { const tr = e.target.closest("tr[data-c]"); if (!tr) return; S.coachSel = tr.dataset.c; ls.set("vx_cf", S.coachSel); S.view = "swimmers"; render(); });
 $("#mgBar").addEventListener("click", e => { const b = e.target.closest("[data-view]"); if (!b) return; S.view = b.dataset.view; render(); });
