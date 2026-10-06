@@ -49,7 +49,7 @@ function render(){
   const phone = k => D.contacts && D.contacts[k.id] ? esc(D.contacts[k.id].join(", ")) : "";
   const ctl = `<div class="bar deck-ctl">
       ${mg ? `<div class="seg" role="group" aria-label="Deck sheet"><button data-dm="master" aria-pressed="${D.mode === "master"}">Master decksheet</button><button data-dm="instructor" aria-pressed="${D.mode === "instructor"}">Instructor decksheet</button></div>` : `<button class="btn" id="dkBack">‹ Back to swimmers</button>`}
-      <div class="tools"><button class="btn" id="dkPrint">Print</button><button class="btn dark" id="dkXls">Download Excel</button></div></div>
+      <div class="tools"><button class="btn primary" id="dkPdf">Download PDF</button><button class="btn" id="dkPrint">Print</button><button class="btn dark" id="dkXls">Download Excel</button></div></div>
     <div class="bar deck-ctl"><div class="seg days-seg" role="group" aria-label="Day">${WD.map(d => `<button data-dd="${d}" aria-pressed="${D.day === d}" ${counts[d] ? "" : "disabled"}>${d}</button>`).join("")}</div></div>
     <div class="bar filters deck-ctl">
       <label class="f" style="flex-direction:row;align-items:center;gap:6px">Age<input class="inp" id="dkMin" inputmode="numeric" placeholder="from" value="${esc(D.ageMin)}" style="width:70px">–<input class="inp" id="dkMax" inputmode="numeric" placeholder="to" value="${esc(D.ageMax)}" style="width:70px"></label>
@@ -101,6 +101,7 @@ function wire(el, list){
   if (q("#dkClear")) q("#dkClear").onclick = () => { D.ageMin = D.ageMax = D.phone = ""; D.coach = "all"; V.render(); };
   if (q("#dkBack")) q("#dkBack").onclick = () => { V.S.view = "swimmers"; V.render(); };
   q("#dkPrint").onclick = () => window.print();
+  q("#dkPdf").onclick = async () => { if (!window.VXDP) return V.toast("Reload the page and try again"); V.toast("Preparing PDF…"); await VXDP.build(D.mode, D.day, list); };
   q("#dkXls").onclick = () => {
     if (!window.XLSX) return V.toast("The Excel tool didn't load – reload the page");
     const mg = V.mgmt(), rows = [[D.mode === "master" ? "Master decksheet" : "Instructor decksheet", D.day], [],
