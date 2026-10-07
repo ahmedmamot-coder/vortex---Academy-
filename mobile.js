@@ -7,11 +7,12 @@ html,body{overflow-x:hidden;max-width:100%}
 #mgBar .seg{max-width:100%;overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none}
 #mgBar .seg button{white-space:nowrap}
 .ov{max-width:100%}
-#mnav{display:none;position:fixed;left:0;right:0;bottom:0;z-index:15;background:var(--surface);border-top:1px solid var(--line);padding:6px 4px calc(6px + env(safe-area-inset-bottom,0px));box-shadow:0 -6px 20px rgba(20,31,68,.08)}
-#mnav button{flex:1;border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10.5px;font-weight:600;color:var(--muted);padding:6px 0;border-radius:10px;min-width:0}
-#mnav button svg{width:23px;height:23px}
-#mnav button[aria-current="true"]{color:var(--royal)}
-#mnav button[aria-current="true"] svg{stroke:var(--royal)}
+#mnav{display:none;position:fixed;left:12px;right:12px;bottom:calc(10px + env(safe-area-inset-bottom,0px));z-index:15;background:#0B0F1A;border-radius:32px;padding:7px;gap:4px;box-shadow:0 14px 34px rgba(8,12,30,.38)}
+#mnav button{flex:1;border:0;background:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:11px;font-weight:600;color:#8A90A2;padding:9px 0 8px;border-radius:24px;min-width:0;position:relative;overflow:hidden;transition:color .2s,background .2s}
+#mnav button svg{width:24px;height:24px;position:relative;z-index:1}#mnav button span{position:relative;z-index:1}
+#mnav button[aria-current="true"]{color:#fff;background:linear-gradient(180deg,#2B2FD9 0%,#1E1B8E 100%);box-shadow:0 6px 16px rgba(27,34,228,.35)}
+#mnav button[aria-current="true"]::before{content:"";position:absolute;left:-10%;right:-10%;top:-38%;height:72%;border-radius:0 0 50% 50%/0 0 34% 34%;background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.2))}
+#mnav button[aria-current="true"] svg{stroke:#fff}
 .mmenu button{width:100%;justify-content:flex-start;padding:14px;font-size:15px;margin-bottom:8px}
 @media (max-width:720px){
   .top-in{padding:12px 14px 14px;gap:10px}
@@ -21,7 +22,7 @@ html,body{overflow-x:hidden;max-width:100%}
   .groups{margin-bottom:10px}.levels{padding:10px 0 14px}.levels-in{gap:8px}
   .lv{min-height:66px;padding:9px 9px 9px 64px;border-radius:14px}.lv .nm{font-size:13px}
   .lv img,.lv>span:first-child{width:48px!important;height:48px!important;left:8px!important}
-  main{padding:14px 12px calc(92px + env(safe-area-inset-bottom,0px))}
+  main{padding:14px 12px calc(112px + env(safe-area-inset-bottom,0px))}
   #mgBar .seg,#mgBar .tools{display:none}#mgBar .sel{flex:1;max-width:none}
   .bar{gap:10px;margin-bottom:12px}.bar h1{font-size:20px}
   .tools{margin-left:0;width:100%}.tools .btn{padding:10px 12px;flex:1;justify-content:center;min-width:44px}
