@@ -147,7 +147,7 @@ async function cert(lu, kidIn){
   doc.setDrawColor("#067EEA"); doc.setLineWidth(2); doc.line(W / 2 - 46, 408, W / 2 + 40, 408); doc.setFillColor("#067EEA"); doc.triangle(W / 2 + 46, 408, W / 2 + 36, 402, W / 2 + 36, 414, "F");
   const dateS = d.date ? fmtD(d.date + "T12:00:00") : fmtD(lu.decided_at || lu.created_at);
   const sig = (x, label, val) => { doc.setDrawColor("#1A1F36"); doc.setLineWidth(0.7); doc.line(x - 85, 520, x + 85, 520); font("normal", 11, "#1A1F36"); if (val) doc.text(val, x, 514, { align: "center" }); font("normal", 8, "#6B7280"); doc.text(label, x, 532, { align: "center" }); };
-  sig(150, "Date", dateS); sig(W - 150, "Coach", d.coach || V.coachName(kid.cid)); sig(W / 2, "Aquatic Manager", "Ahmed Aly");
+  sig(150, "Date", dateS); sig(W - 150, "Academy Supervisor", "Nesrine Ferjani"); sig(W / 2, "Aquatic Manager", "Ahmed Aly");
   font("normal", 7.5, "#6B7280"); doc.text("Hamad Aquatic Center · Aspire Zone, Doha, Qatar", W / 2, H - 46, { align: "center" });
   doc.setProperties({ title: `Certificate – ${kid.name}`, author: "Vortex Swimming Academy" });
   V.deliver(`Certificate – ${kid.name} – ${to.short}.pdf`, doc.output("blob"));
