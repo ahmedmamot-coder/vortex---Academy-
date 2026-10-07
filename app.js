@@ -772,7 +772,7 @@ $("#meBtn").onclick = askName; $("#teamBtn").onclick = () => adminSheet("people"
 $("#addBtn").onclick = addKids; $("#deckBtn") && ($("#deckBtn").onclick = () => { S.view = "deck"; render(); window.scrollTo(0, 0); }); $("#calBtn") && ($("#calBtn").onclick = () => { S.view = "calendar"; render(); window.scrollTo(0, 0); }); $("#notesBtn").onclick = groupNotes; $("#attBtn").onclick = attendance; $("#dlAllBtn").onclick = downloadAll;
 
 window.VX = { S, sb, esc, openSheet, closeSheet, head, toast, mgmt, coachName, ageOf, fmtTime, timeVal, fromIso, iso, sundayOf, weekLabel, MON, DAYS, norm, visibleCoachIds, toRep, downloadPdfs, deliver, render, groupOf, loadBase, reportOf,
-  saveAtt: async (kid, i, v) => { const r = getReport(kid); r.att[i] = v ? 1 : 0; if (!r.attTotal && sessCount(kid)) r.attTotal = String(sessCount(kid)); r.updatedAt = Date.now(); r.updatedBy = S.me.id; await put(P.report(kid.cid, kid.id), r); },
+  saveAtt: async (kid, i, v) => { const r = getReport(kid); r.abs = Array.isArray(r.abs) ? r.abs : [0,0,0,0,0,0,0]; r.att[i] = v === "P" || v === true ? 1 : 0; r.abs[i] = v === "A" ? 1 : 0; if (!r.attTotal && sessCount(kid)) r.attTotal = String(sessCount(kid)); r.updatedAt = Date.now(); r.updatedBy = S.me.id; await put(P.report(kid.cid, kid.id), r); },
   goWeek: ws => { S.week = iso(sundayOf(fromIso(ws))); S.reports = {}; S.notes = {}; S.view = "swimmers"; render(); loadWeek(); },
   goDay: ds => { const d = fromIso(ds); S.week = iso(sundayOf(d)); S.reports = {}; S.notes = {}; S.day = DAYS[d.getDay()]; ls.set("vx_day", S.day); S.view = "swimmers"; render(); loadWeek(); window.scrollTo(0, 0); } };
 

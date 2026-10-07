@@ -24,7 +24,7 @@ function classesOn(ds){
       const key = V.timeVal(x.time) + "|" + V.norm(coach);
       const c = cls[key] = cls[key] || { time: x.time, tv: V.timeVal(x.time), coach, lanes: new Set(), kids: [] };
       if (x.lane) c.lanes.add(x.lane);
-      const r = C.reps && C.reps[k.id + "|" + wk]; c.kids.push({ k, att: !!(r && r[di]), marked: !!r });
+      const r = C.reps && C.reps[k.id + "|" + wk]; c.kids.push({ k, att: !!(r && r.att[di]), marked: !!(r && (r.att[di] || r.abs[di])) });
     }); });
   return Object.values(cls).sort((a, b) => a.tv - b.tv || a.coach.localeCompare(b.coach));
 }
@@ -33,7 +33,7 @@ async function loadReps(from, to){
   C.key = key; C.loading = true; C.reps = null;
   const { data } = await V.sb.from("acad_reports").select("swimmer_id,week,data").gte("week", ymd(V.sundayOf(V.fromIso(from)))).lte("week", to);
   if (C.key !== key) return; C.loading = false; C.reps = {};
-  (data || []).forEach(r => { C.reps[r.swimmer_id + "|" + r.week] = (r.data && r.data.att) || []; }); V.render();
+  (data || []).forEach(r => { C.reps[r.swimmer_id + "|" + r.week] = { att: (r.data && r.data.att) || [], abs: (r.data && r.data.abs) || [] }; }); V.render();
 }
 function render(){
   const V = X(), el = document.getElementById("vCal"); if (!el) return;
