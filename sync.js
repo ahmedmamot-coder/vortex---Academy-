@@ -77,7 +77,7 @@ async function exportBackup(btn){
 }
 
 function readSheet(aoa){
-  const V = X(), hi = aoa.findIndex(r => r.some(c => /^full\s*name$/i.test(str(c)))); if (hi < 0) return null;
+  const V = X(), hi = aoa.slice(0, 15).findIndex(r => r.some(c => /^full\s*name$/i.test(str(c)))); if (hi < 0) return null;
   const H = aoa[hi].map(c => str(c).toLowerCase().replace(/\s+/g, " "));
   const col = re => H.findIndex(h => re.test(h));
   const days = {}; H.forEach((h, i) => { const m = h.match(/^(sun|mon|tue|wed|thu|fri|sat)[a-z]*\.? (time|coach|lane)$/); if (m) { const d = WD[["sun","mon","tue","wed","thu","fri","sat"].indexOf(m[1])]; (days[d] = days[d] || {})[m[2]] = i; } });
@@ -105,7 +105,8 @@ function readSheet(aoa){
 async function plan(items){
   const V = X(), { rows, cm } = await fetchAll(false);
   const byId = {}, byKey = {}; rows.forEach(r => { byId[r.id] = r; byKey[V.norm(r.name) + "|" + (r.dob || "")] = r; byKey[V.norm(r.name) + "|"] = byKey[V.norm(r.name) + "|"] || r; });
-  const coachId = name => { const n = V.norm(short(String(name || "").split(/[\/,&]+/)[0])); return n ? V.visibleCoachIds().find(id => V.norm(short(V.coachName(id))) === n) : null; };
+  const cmap = {}; V.visibleCoachIds().forEach(id => { cmap[V.norm(short(V.coachName(id)))] = id; });
+  const coachId = name => { const n = V.norm(short(String(name || "").split(/[\/,&]+/)[0])); return n ? cmap[n] || null : null; };
   const has = { ...items.has, days: items.hasDays };
   const isKeep = it => !it.status || KEEP.includes(it.status.toLowerCase());
   const mk = {}, merged = [];
@@ -148,17 +149,19 @@ async function plan(items){
     if (diff.length) res.change.push({ id: ex.id, name: ex.name, rec: { id: ex.id, ...rec }, con, diff }); else res.same++;
   });
   res.missing = rows.filter(r => r.active !== false && !res.seen.has(r.id));
+  res.rows = rows;
   return res;
 }
 
 async function apply(p, markLeft, btn){
-  const V = X(); btn.disabled = true; btn.textContent = "Saving…";
+  const V = X(); btn.disabled = true; btn.textContent = "Saving…"; const prog = (a, b) => { btn.textContent = `Saving ${a} of ${b}…`; };
   try {
     const recs = p.add.concat(p.change).map(x => ({ ...x.rec, updated_at: new Date().toISOString() }));
-    for (let i = 0; i < recs.length; i += 100) { const { error } = await V.sb.from("acad_swimmers").upsert(recs.slice(i, i + 100)); if (error) throw error; }
+    for (let i = 0; i < recs.length; i += 100) { prog(i, recs.length); const { error } = await V.sb.from("acad_swimmers").upsert(recs.slice(i, i + 100)); if (error) throw error; }
     const cons = p.add.concat(p.change).map(x => ({ swimmer_id: x.id, ...x.con }));
     for (let i = 0; i < cons.length; i += 100) { const { error } = await V.sb.from("acad_contacts").upsert(cons.slice(i, i + 100)); if (error) throw error; }
     if (markLeft && p.missing.length) { const { error } = await V.sb.from("acad_swimmers").update({ active: false }).in("id", p.missing.map(r => r.id)); if (error) throw error; }
+    try { await V.sb.from("acad_settings").upsert({ key: "last_import", value: { at: new Date().toISOString(), by: V.S.me.name || "", file: p.file || "", added: p.add.length, updated: p.change.length, left: markLeft ? p.missing.length : 0 } }); } catch {}
     await V.loadBase(); V.render();
     btn.textContent = "Done ✓"; V.toast(`Excel synced – ${p.add.length} added, ${p.change.length} updated${markLeft && p.missing.length ? `, ${p.missing.length} marked as left` : ""}`);
   } catch (e) { btn.disabled = false; btn.textContent = "Apply changes"; V.toast("Not saved – " + (e.message || "check your connection")); }
@@ -172,12 +175,14 @@ function mount(el){
       <p class="note" style="margin:0 0 10px">Downloads everything in your term-sheet layout: a <b>Register</b> sheet (status, names, DOB, contacts, QID, level, coach, start date, every day's time / coach / lane, payment), plus <b>Attendance</b> and <b>Weekly reports</b> sheets. Keep this file as your backup and edit it in Excel.</p>
       <button class="btn primary" id="xsExport">Download Excel backup</button>
       <p class="note">${last ? `Last backup from this device: ${ago === 0 ? "today" : ago === 1 ? "yesterday" : ago + " days ago"}.` : "No backup downloaded on this device yet."}${ago != null && ago >= 7 ? ` <b style="color:#b4231f">Time for a new backup.</b>` : ""}</p></div>
-    <div class="box"><h3>2 · Bring your Excel changes into the app</h3>
+    <div class="box"><h3>2 · Bring your Excel changes into the app <small id="xsLast"></small></h3>
       <p class="note" style="margin:0 0 10px">Upload the register after editing it in Excel – new rows are added, changed rows are updated (matched by the VX ID column, or name + date of birth). Nothing is saved until you check the changes and press Apply. The original term sheet works too.</p>
       <input type="file" id="xsFile" accept=".xlsx,.xls,.csv" class="inp"><div id="xsPrev"></div></div>`;
   el.querySelector("#xsExport").onclick = e => exportBackup(e.currentTarget);
+  V.sb.from("acad_settings").select("value").eq("key", "last_import").maybeSingle().then(({ data }) => { const v = data && data.value, s = el.querySelector("#xsLast"); if (!v || !s) return;
+    const d = new Date(v.at); s.textContent = `Last import ${d.getDate()} ${V.MON[d.getMonth()]}, ${d.getHours() % 12 || 12}:${String(d.getMinutes()).padStart(2, "0")} ${d.getHours() < 12 ? "am" : "pm"}${v.by ? " by " + v.by : ""} · ${v.added} added, ${v.updated} updated`; });
   el.querySelector("#xsFile").onchange = async e => {
-    const f = e.target.files[0], pv = el.querySelector("#xsPrev"); if (!f) return;
+    const f = e.target.files[0], pv = el.querySelector("#xsPrev"); if (!f) return; fileInfo = { name: f.name, time: f.lastModified || Date.now() };
     if (!window.XLSX) return V.toast("The Excel tool didn't load – reload the page");
     pv.innerHTML = `<p class="note">Reading the file…</p>`;
     let cands = [];
@@ -189,18 +194,21 @@ function mount(el){
     cands.sort((a, b) => b.score - a.score);
     show(cands, 0);
   };
+  let fileInfo = { name: "", time: Date.now() };
   async function show(cands, ci){
     const pv = el.querySelector("#xsPrev"), items = cands[ci].it;
     pv.innerHTML = `<p class="note">Comparing with the app…</p>`;
     let p; try { p = await plan(items); } catch (er) { pv.innerHTML = `<p class="note">Couldn't compare with the app: ${esc(er.message || "")}</p>`; return; }
-    if (!items.has.id) p.missing = [];
+    p.file = fileInfo.name;
+    const full = items.length >= 0.5 * p.rows.filter(r => r.active !== false).length;
+    p.missing = full ? p.missing.filter(r => !r.updated_at || new Date(r.updated_at).getTime() < fileInfo.time) : [];
     pv.innerHTML = `${cands.length > 1 ? `<label class="f" style="margin-top:10px">Sheet<select class="inp" id="xsSheet">${cands.map((c, i) => `<option value="${i}" ${i === ci ? "selected" : ""}>${esc(c.n)} (${c.it.length} rows)</option>`).join("")}</select></label>` : ""}
       <div class="kpis" style="grid-template-columns:repeat(4,1fr);margin:12px 0 8px"><div class="kpi"><b>${p.add.length}</b><span>New swimmers</span></div><div class="kpi"><b>${p.change.length}</b><span>Updated</span></div>
         <div class="kpi"><b>${p.same}</b><span>No change</span></div><div class="kpi"><b>${p.skip.length}</b><span>Skipped rows</span></div></div>
       ${p.add.length ? `<details open><summary class="note" style="cursor:pointer">New (${p.add.length})</summary>${p.add.slice(0, 50).map(x => `<p class="note" style="margin:2px 0">+ ${esc(x.rec.name)} · ${esc((LEVELS[x.rec.level - 1] || {}).short || "")} · Coach ${esc(short(V.coachName(x.rec.coach_id)))}</p>`).join("")}</details>` : ""}
       ${p.change.length ? `<details open><summary class="note" style="cursor:pointer">Updated (${p.change.length})</summary>${p.change.slice(0, 80).map(x => `<p class="note" style="margin:2px 0">• ${esc(x.name)}: ${esc(x.diff.join(", "))}</p>`).join("")}${p.change.length > 80 ? `<p class="note">…and ${p.change.length - 80} more</p>` : ""}</details>` : ""}
       ${p.skip.length ? `<details><summary class="note" style="cursor:pointer;color:#b4231f">Skipped (${p.skip.length})</summary>${p.skip.slice(0, 60).map(x => `<p class="note" style="margin:2px 0">Row ${x.row} (${esc(x.name)}): ${esc(x.why)}</p>`).join("")}</details>` : ""}
-      ${p.missing.length ? `<label class="f" style="flex-direction:row;align-items:center;gap:8px;margin-top:10px"><input type="checkbox" id="xsLeft"> ${p.missing.length} swimmer${p.missing.length === 1 ? " is" : "s are"} in the app but not in this sheet – mark them as left</label>` : ""}
+      ${p.missing.length ? `<label class="f" style="flex-direction:row;align-items:center;gap:8px;margin-top:10px"><input type="checkbox" id="xsLeft"> ${p.missing.length} swimmer${p.missing.length === 1 ? " is" : "s are"} in the app but not in this register – mark them as left <span class="note" style="margin:0">(swimmers added or edited in the app after this file was saved are kept)</span></label>` : ""}
       ${p.add.length || p.change.length || p.missing.length ? `<button class="btn primary" id="xsApply" style="margin-top:12px">Apply changes</button>` : `<p class="note" style="margin-top:10px">The app already matches this sheet.</p>`}`;
     const ap = pv.querySelector("#xsApply"); if (ap) ap.onclick = () => apply(p, !!(pv.querySelector("#xsLeft") || {}).checked, ap);
     const ss = pv.querySelector("#xsSheet"); if (ss) ss.onchange = () => show(cands, +ss.value);
