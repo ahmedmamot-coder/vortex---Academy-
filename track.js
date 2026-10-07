@@ -74,7 +74,7 @@ async function form(key, luId){
       <div class="as"><span class="note" style="flex:0 0 120px;margin:0">Moving</span><span><b>${esc(L.short)} · ${esc(L.name)}</b> → <b>${esc(N.short)}${to ? " · " + esc(N.name) : ""}</b></span></div></div>
     <div class="box" style="--c:var(--purple)"><h3>${esc(L.short)} assessment to pass</h3>${L.assess.map((a, i) => `<div class="as"><span>${esc(a)}</span>${yn("la", i, assess[i])}</div>`).join("")}
       <p class="note">Filled in from the latest weekly report – change anything that's different on assessment day.</p></div>
-    ${to === 0 ? `<div class="box" style="--c:var(--royal)"><h3>Club Pre-Team readiness <small>draft – edit with your head coach</small></h3>${PRE_SKILLS.map((a, i) => `<div class="as"><span>${esc(a)}</span>${yn("pr", i, pre[i])}</div>`).join("")}</div>` : ""}
+    ${to === 0 ? `<div class="box" style="--c:var(--royal)"><h3>Club Pre-Team readiness</h3>${PRE_SKILLS.map((a, i) => `<div class="as"><span>${esc(a)}</span>${yn("pr", i, pre[i])}</div>`).join("")}</div>` : ""}
     <div class="box" style="--c:var(--sky)"><h3>Coach's recommendation</h3>
       <div class="grid4"><label class="f">Assessment date<input class="inp" type="date" id="luDate" value="${esc(d.date || V.iso(new Date()))}" ${ro ? "disabled" : ""}></label>
       <label class="f">Recommendation<select class="inp" id="luRec" ${ro ? "disabled" : ""}><option value="ready" ${d.rec !== "more" ? "selected" : ""}>Ready to move up</option><option value="more" ${d.rec === "more" ? "selected" : ""}>Needs a little more time</option></select></label></div>
@@ -147,7 +147,7 @@ async function cert(lu, kidIn){
   doc.setDrawColor("#067EEA"); doc.setLineWidth(2); doc.line(W / 2 - 46, 408, W / 2 + 40, 408); doc.setFillColor("#067EEA"); doc.triangle(W / 2 + 46, 408, W / 2 + 36, 402, W / 2 + 36, 414, "F");
   const dateS = d.date ? fmtD(d.date + "T12:00:00") : fmtD(lu.decided_at || lu.created_at);
   const sig = (x, label, val) => { doc.setDrawColor("#1A1F36"); doc.setLineWidth(0.7); doc.line(x - 85, 520, x + 85, 520); font("normal", 11, "#1A1F36"); if (val) doc.text(val, x, 514, { align: "center" }); font("normal", 8, "#6B7280"); doc.text(label, x, 532, { align: "center" }); };
-  sig(150, "Date", dateS); sig(W - 150, "Coach", d.coach || V.coachName(kid.cid)); sig(W / 2, "Academy Management", "");
+  sig(150, "Date", dateS); sig(W - 150, "Coach", d.coach || V.coachName(kid.cid)); sig(W / 2, "Aquatic Manager", "Ahmed Aly");
   font("normal", 7.5, "#6B7280"); doc.text("Hamad Aquatic Center · Aspire Zone, Doha, Qatar", W / 2, H - 46, { align: "center" });
   doc.setProperties({ title: `Certificate – ${kid.name}`, author: "Vortex Swimming Academy" });
   V.deliver(`Certificate – ${kid.name} – ${to.short}.pdf`, doc.output("blob"));
