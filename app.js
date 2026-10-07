@@ -129,6 +129,7 @@ async function loadBase(){
   S.kids = {}; k.data.forEach(r => { const kd = toKid(r); S.kids[`${kd.cid}/${kd.id}`] = kd; });
   S.staff = {}; st.data.forEach(r => { S.staff[r.user_id] = { title: r.role[0].toUpperCase() + r.role.slice(1), name: r.display_name, email: r.email, active: r.active, managed: r.managed }; });
   se.data.forEach(r => { if (r.key === "term") S.term = r.value; if (r.key === "programs") { S.programs = r.value; applyPrograms(r.value); } });
+  if (S.me.mgmt) { const ph = await sb.from("acad_contacts").select("swimmer_id,phones").limit(5000); S.phones = {}; (ph.data || []).forEach(r => { S.phones[r.swimmer_id] = (r.phones || []).map(p => String(p).replace(/\D/g, "")); }); }
   S.ready = true;
 }
 async function loadWeek(){
@@ -181,6 +182,7 @@ function renderTop(){
   $("#vTimesheet")?.classList.toggle("hide", S.view !== "timesheet");
   $("#vDeck")?.classList.toggle("hide", S.view !== "deck");
   $("#vCal")?.classList.toggle("hide", S.view !== "calendar");
+  $("#vTrack")?.classList.toggle("hide", S.view !== "track");
 }
 function renderLevels(){
   const grp = LEVELS[S.level-1].group;
@@ -200,18 +202,19 @@ function renderLevels(){
 function renderFilters(){
   const counts = {}; DAYS.forEach(d => counts[d] = Object.values(S.kids).filter(k => inScope(k) && (k.sessions||[]).some(x => x.day === d)).length);
   $("#filters").innerHTML = `<div class="seg days-seg" role="group" aria-label="Training day"><button data-day-f="all" aria-pressed="${S.day==="all"}">All days</button>${DAYS.map(d => `<button data-day-f="${d}" aria-pressed="${S.day===d}" ${counts[d] ? "" : "disabled"}>${d}</button>`).join("")}</div>
-    <input class="inp srch" id="q" type="search" placeholder="Search a swimmer" value="${esc(S.q)}" aria-label="Search a swimmer">`;
+    <input class="inp srch" id="q" type="search" placeholder="${mgmt() ? "Search name or mobile" : "Search a swimmer"}" value="${esc(S.q)}" aria-label="Search a swimmer">`;
 }
 function rowHtml(k, i, sub){
   const st = statusOf(k), lab = { todo:"Not started", wip:"In progress", done:"Done", rev:"Reviewed" };
   return `<button class="row" data-k="${esc(k.cid)}/${esc(k.id)}"><span class="av" style="background:${AVC[i%5]}">${esc(k.name.charAt(0).toUpperCase())}</span>
       <span class="who"><b>${esc(k.name)}</b><span>${sub || "&nbsp;"}</span></span><span class="pill ${st}">${lab[st]}</span></button>`;
 }
+const phoneHit = k => { const d = S.q.replace(/\D/g, ""); return d.length >= 3 && ((S.phones && S.phones[k.id]) || []).some(p => p.includes(d)); };
 function renderList(){
   if (!$("#q") || document.activeElement !== $("#q")) renderFilters();
   const L = LEVELS[S.level-1], showCoach = mgmt() && S.coachSel === "all";
   const searching = S.q.trim().length > 0;
-  const ks = searching ? Object.values(S.kids).filter(k => inScope(k) && norm(k.name).includes(norm(S.q))).sort((a,b) => a.name.localeCompare(b.name)) : S.allLv ? allLevelKids() : kidsInLevel(S.level);
+  const ks = searching ? Object.values(S.kids).filter(k => inScope(k) && (norm(k.name).includes(norm(S.q)) || phoneHit(k))).sort((a,b) => a.name.localeCompare(b.name)) : S.allLv ? allLevelKids() : kidsInLevel(S.level);
   const all = S.allLv ? allLevelKids(true) : kidsInLevel(S.level, true), done = all.filter(isDone).length;
   $("#lvTitle").textContent = searching ? `Search: ${S.q}` : S.allLv ? "All levels" : `${L.short} · ${L.name}`;
   $("#lvSub").textContent = searching ? `${ks.length} swimmer${ks.length===1?"":"s"} found in all levels` : all.length ? `${done} of ${all.length} reports done this week` : L.goal;
@@ -253,7 +256,7 @@ function renderOverview(){
     </tbody></table></div>`;
 }
 let rq = 0;
-function render(){ if (S.blocked || rq) return; rq = requestAnimationFrame(() => { rq = 0; if (S.blocked) return; renderTop(); renderLevels(); if (S.view === "overview") renderOverview(); else if (S.view === "timesheet") { if (window.VXP) VXP.renderTimesheet(); } else if (S.view === "deck") { if (window.VXD) VXD.render(); } else if (S.view === "calendar") { if (window.VXC) VXC.render(); } else renderList(); }); }
+function render(){ if (S.blocked || rq) return; rq = requestAnimationFrame(() => { rq = 0; if (S.blocked) return; renderTop(); renderLevels(); if (window.VXT) VXT.after(); if (S.view === "overview") renderOverview(); else if (S.view === "timesheet") { if (window.VXP) VXP.renderTimesheet(); } else if (S.view === "deck") { if (window.VXD) VXD.render(); } else if (S.view === "calendar") { if (window.VXC) VXC.render(); } else if (S.view === "track") { if (window.VXT) VXT.render(); } else renderList(); }); }
 
 /* ---------- sheets ---------- */
 let closeHook = null;
@@ -646,9 +649,10 @@ function openKid(key){
   const sh = $("#layer .sheet");
   const moveUp = () => { const w = $("#moveWrap"), cur = S.kids[key];
     const nx = L.nextId, NL = nx ? LEVELS[nx-1] : null;
-    w.innerHTML = r.ready === 1 && NL && cur.level === lvl ? `<button class="btn moveup" id="mvBtn">Move ${esc(kid.name.split(" ")[0])} to ${esc(NL.short)} · ${esc(NL.name)} from next week</button>` :
+    const canUp = lvl !== 9 && (NL || lvl === 5);
+    w.innerHTML = r.ready === 1 && canUp && cur.level === lvl ? `<button class="btn moveup" id="mvBtn">Open level-up form → ${esc(NL ? NL.short + " · " + NL.name : "Club Pre-Team")}</button>` :
       cur.level !== lvl ? `<p class="note">Moves to ${esc(LEVELS[cur.level-1].short)} from next week.</p>` : "";
-    $("#mvBtn") && ($("#mvBtn").onclick = async () => { await patch(P.kid(cid, id), { level: nx, last: null }); toast(`${kid.name} moves to ${NL.short} next week`); w.innerHTML = `<p class="note">Moves to ${esc(NL.short)} from next week.</p>`; });
+    $("#mvBtn") && ($("#mvBtn").onclick = async () => { await flush(); closeHook = null; if (window.VXT) VXT.form(key); });
   };
   moveUp();
   sh.addEventListener("click", e => {

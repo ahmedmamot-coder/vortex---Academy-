@@ -60,7 +60,7 @@ async function open(key){
     <div class="box" style="--c:var(--sky)"><h3>Attended classes <small>${attended.length}</small></h3>
       ${attended.length ? attended.map(a => `<div class="as"><span>${esc(fmtDate(a.date))}</span><span class="note" style="margin:0">${esc(a.time)}</span></div>`).join("") : `<p class="note" style="margin:0">No attendance recorded yet.</p>`}</div>
     <div class="box" style="--c:var(--purple)"><h3>Level progression</h3>
-      ${row("Started in", `${esc(lv((hist.data || [])[0] ? hist.data[0].from_level : kid.level).short)}${start ? " · " + esc(fmtDate(start)) : ""}`)}${prog || `<p class="note" style="margin:6px 0 0">No level changes yet.</p>`}</div>
+      ${row("Started in", `${esc(lv((hist.data || [])[0] ? hist.data[0].from_level : kid.level).short)}${start ? " · " + esc(fmtDate(start)) : ""}`)}${prog || `<p class="note" style="margin:6px 0 0">No level changes yet.</p>`}${kid.level !== 9 ? `<button class="btn" id="pfLvl" style="margin-top:10px">Level-up form</button>` : ""}</div>
     <div class="box" style="--c:var(--mint)"><h3>Report cards <small>${reports.length}</small></h3>${cards || `<p class="note" style="margin:0">No reports yet.</p>`}</div>
     <div class="box" style="--c:var(--mint)"><h3>Coach comments</h3>${comments || `<p class="note" style="margin:0">No comments yet.</p>`}</div>`;
   body.addEventListener("click", async e => {
@@ -68,6 +68,7 @@ async function open(key){
     const r = reports.find(x => x.week === b.dataset.pdf), saved = V.S.week;
     V.S.week = r.week; try { await V.downloadPdfs([{ kid, r: V.toRep(r) }], "single"); } finally { V.S.week = saved; }
   });
+  const lu = document.getElementById("pfLvl"); if (lu) lu.onclick = () => { if (window.VXT) VXT.form(key); };
   const rg = document.getElementById("pfReg"); if (rg) rg.onclick = () => { if (window.VXR) VXR.open(kid.id); };
   const sv = document.getElementById("pfSave");
   if (sv) sv.onclick = async () => {
