@@ -7,12 +7,13 @@ html,body{overflow-x:hidden;max-width:100%}
 #mgBar .seg{max-width:100%;overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none}
 #mgBar .seg button{white-space:nowrap}
 .ov{max-width:100%}
-#mnav{display:none;position:fixed;left:12px;right:12px;bottom:calc(10px + env(safe-area-inset-bottom,0px));z-index:15;background:#0B0F1A;border-radius:32px;padding:7px;gap:4px;box-shadow:0 14px 34px rgba(8,12,30,.38)}
-#mnav button{flex:1;border:0;background:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:11px;font-weight:600;color:#8A90A2;padding:9px 0 8px;border-radius:24px;min-width:0;position:relative;overflow:hidden;transition:color .2s,background .2s}
-#mnav button svg{width:24px;height:24px;position:relative;z-index:1}#mnav button span{position:relative;z-index:1}
-#mnav button[aria-current="true"]{color:#fff;background:linear-gradient(180deg,#2B2FD9 0%,#1E1B8E 100%);box-shadow:0 6px 16px rgba(27,34,228,.35)}
-#mnav button[aria-current="true"]::before{content:"";position:absolute;left:-10%;right:-10%;top:-38%;height:72%;border-radius:0 0 50% 50%/0 0 34% 34%;background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.2))}
-#mnav button[aria-current="true"] svg{stroke:#fff}
+#mnav{display:none;position:fixed;left:12px;right:12px;bottom:calc(10px + env(safe-area-inset-bottom,0px));z-index:15;background:#1B2955;border-radius:32px;padding:7px;gap:4px;box-shadow:0 14px 34px rgba(27,41,85,.4),inset 0 0 0 1px rgba(255,255,255,.06)}
+#mnav button{--c:#067EEA;--ic:#067EEA;--on:#fff;flex:1;border:0;background:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:11px;font-weight:600;color:#B9C2E0;padding:9px 0 8px;border-radius:24px;min-width:0;position:relative;overflow:hidden;transition:color .2s,background .2s}
+#mnav button:nth-child(2){--c:#1DFEBF;--ic:#1DFEBF;--on:#1B2955}#mnav button:nth-child(3){--c:#8F23D7;--ic:#B57BFF}#mnav button:nth-child(4){--c:#1B22E4;--ic:#6E74FF}#mnav button:nth-child(5){--c:#067EEA;--ic:#B9C2E0}
+#mnav button svg{width:24px;height:24px;position:relative;z-index:1;stroke:var(--ic)}#mnav button span{position:relative;z-index:1}
+#mnav button[aria-current="true"]{color:var(--on);background:var(--c);box-shadow:0 6px 16px rgba(0,0,0,.25)}
+#mnav button[aria-current="true"]::before{content:"";position:absolute;left:-10%;right:-10%;top:-38%;height:72%;border-radius:0 0 50% 50%/0 0 34% 34%;background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.24))}
+#mnav button[aria-current="true"] svg{stroke:var(--on)}
 .mmenu button{width:100%;justify-content:flex-start;padding:14px;font-size:15px;margin-bottom:8px}
 @media (max-width:720px){
   .top-in{padding:12px 14px 14px;gap:10px}
