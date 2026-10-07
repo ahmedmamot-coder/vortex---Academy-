@@ -10,7 +10,9 @@ const st = document.createElement("style");
 st.textContent = `@media print{.top,.levels,#mgBar,.deck-ctl,.toast{display:none!important}main{padding:0!important;max-width:none!important}body{background:#fff}.ov{box-shadow:none!important}.deck-class{break-inside:avoid}}
 .deck-class{margin-bottom:14px}.deck-head{display:flex;flex-wrap:wrap;gap:8px;align-items:baseline;padding:10px 16px;background:var(--navy);color:#fff;border-radius:12px 12px 0 0}.deck-head b{font-size:15px}.deck-head span{font-size:12.5px;color:#b9c2e0}
 .deck-head .cap{margin-left:auto;font-weight:600;border-radius:8px;padding:2px 8px;background:rgba(255,255,255,.12);color:#fff}.deck-head .cap.over{background:#f4c7c3;color:#8a1c14}.deck-head .cap.full{background:var(--mint);color:var(--navy)}
-.deck-class .ov{border-radius:0 0 12px 12px}.deck-class table{min-width:520px}.deck-class td,.deck-class th{text-align:left!important;padding:9px 12px!important}.pd{font-size:11px;font-weight:600;border-radius:8px;padding:2px 8px}.pd.y{background:#d8fff2;color:#06704f}.pd.n{background:#ffe1de;color:#b4231f}`;
+.deck-class .ov{border-radius:0 0 12px 12px}.deck-class table{min-width:520px}.deck-class td,.deck-class th{text-align:left!important;padding:9px 12px!important}.pd{font-size:11px;font-weight:600;border-radius:8px;padding:2px 8px}.pd.y{background:#d8fff2;color:#06704f}.pd.n{background:#ffe1de;color:#b4231f}
+.att{border:1.5px solid var(--line);background:var(--surface-2);border-radius:9px;padding:6px 10px;font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap;cursor:pointer}.att.on{background:#d8fff2;border-color:#0E9F7A;color:#06704f}
+.deck-head .att.all{margin-left:auto;background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.3);color:#fff}@media print{.att.all{display:none}}`;
 document.head.appendChild(st);
 
 function entries(){
@@ -57,14 +59,19 @@ function render(){
       ${D.mode === "instructor" && coaches.length > 1 ? `<select class="sel" id="dkCoach"><option value="all">All coaches</option>${coaches.map(c => `<option value="${esc(c)}" ${D.coach === c ? "selected" : ""}>${esc(c.replace(/\b\w/g, m => m.toUpperCase()))}</option>`).join("")}</select>` : ""}
       ${D.ageMin || D.ageMax || D.phone || D.coach !== "all" ? `<button class="btn ghost" id="dkClear">Clear filters</button>` : ""}
     </div>`;
-  const title = `<div class="bar"><div><h1>${D.mode === "master" ? "Master decksheet" : "Instructor decksheet"} · ${({Sun:"Sunday",Mon:"Monday",Tue:"Tuesday",Wed:"Wednesday",Thu:"Thursday",Fri:"Friday",Sat:"Saturday"})[D.day]}</h1>
-    <div class="sub">${list.length} swimmer${list.length === 1 ? "" : "s"}${list.length !== all.length ? ` of ${all.length}` : ""} · classes are 40 min · max 4 per class, Nitro Needlefish 8</div></div></div>`;
+  const di = WD.indexOf(D.day), dDate = V.fromIso(V.S.week); dDate.setDate(dDate.getDate() + di); const future = V.iso(dDate) > V.iso(new Date());
+  const isP = k => { const r = V.reportOf(k); return !!(r && r.att && r.att[di]); };
+  const attCell = e => future ? `<td><span class="note" style="margin:0">Upcoming</span></td>` : `<td><button class="att ${isP(e.kid) ? "on" : ""}" data-att="${esc(e.kid.cid + "/" + e.kid.id)}">${isP(e.kid) ? "✓ Present" : "Mark present"}</button></td>`;
+  const allBtn = items => future ? "" : `<button class="att all" data-allp="${esc(items.map(e => e.kid.cid + "/" + e.kid.id).join(","))}">All present</button>`;
+  const pc = items => items.filter(e => isP(e.kid)).length;
+  const title = `<div class="bar"><div><h1>${D.mode === "master" ? "Master decksheet" : "Instructor decksheet"} · ${({Sun:"Sunday",Mon:"Monday",Tue:"Tuesday",Wed:"Wednesday",Thu:"Thursday",Fri:"Friday",Sat:"Saturday"})[D.day]} ${dDate.getDate()} ${V.MON[dDate.getMonth()]}</h1>
+    <div class="sub">${list.length} swimmer${list.length === 1 ? "" : "s"}${list.length !== all.length ? ` of ${all.length}` : ""} ${future ? " · upcoming" : ` · <b>${list.filter(e => isP(e.kid)).length} present</b>`} · classes are 40 min · max 4 per class, Nitro Needlefish 8</div></div></div>`;
   let body = "";
   const classBlock = (label, sub, items, showCoach) => {
     const c = cap(items), n = items.length, pt = items.every(e => e.kid.level === 9);
-    return `<div class="deck-class"><div class="deck-head"><b>${label}</b><span>${sub}</span>${pt ? "" : `<span class="cap ${n > c ? "over" : n === c ? "full" : ""}">${n}/${c}${n > c ? " · over capacity" : ""}</span>`}</div>
-      <div class="ov"><table><thead><tr>${showCoach ? "<th>Coach</th><th>Lane</th>" : "<th>Lane</th>"}<th>Swimmer</th><th>Level</th><th>Age</th>${mg ? "<th>Mobile</th><th>Payment</th>" : ""}</tr></thead><tbody>
-      ${items.map(e => `<tr>${showCoach ? `<td>${esc(e.coach)}</td>` : ""}<td>${esc(e.lane)}</td><td><b>${esc(e.kid.name)}</b></td><td>${lvl(e.kid)}</td><td>${esc(V.ageOf(e.kid))}</td>${mg ? `<td>${phone(e.kid)}</td><td>${paid(e.kid)}</td>` : ""}</tr>`).join("")}
+    return `<div class="deck-class"><div class="deck-head"><b>${label}</b><span>${sub}</span>${future ? "" : `<span>${pc(items)} present</span>`}${allBtn(items)}${pt ? "" : `<span class="cap ${n > c ? "over" : n === c ? "full" : ""}">${n}/${c}${n > c ? " · over capacity" : ""}</span>`}</div>
+      <div class="ov"><table><thead><tr>${showCoach ? "<th>Coach</th><th>Lane</th>" : "<th>Lane</th>"}<th>Swimmer</th><th>Level</th><th>Age</th>${mg ? "<th>Mobile</th><th>Payment</th>" : ""}<th>Present</th></tr></thead><tbody>
+      ${items.map(e => `<tr>${showCoach ? `<td>${esc(e.coach)}</td>` : ""}<td>${esc(e.lane)}</td><td><b>${esc(e.kid.name)}</b></td><td>${lvl(e.kid)}</td><td>${esc(V.ageOf(e.kid))}</td>${mg ? `<td>${phone(e.kid)}</td><td>${paid(e.kid)}</td>` : ""}${attCell(e)}</tr>`).join("")}
       </tbody></table></div></div>`;
   };
   if (!list.length) body = `<div class="list"><div class="empty"><b>No swimmers</b>${all.length ? "Nothing matches these filters." : `No classes on ${D.day}.`}</div></div>`;
@@ -74,9 +81,9 @@ function render(){
       const items = byTime[t].sort((a, b) => a.coach.localeCompare(b.coach) || a.kid.level - b.kid.level || a.kid.name.localeCompare(b.kid.name));
       const groups = {}; items.forEach(e => (groups[V.norm(e.coach)] = groups[V.norm(e.coach)] || []).push(e));
       const over = Object.values(groups).filter(g => !g.every(e => e.kid.level === 9) && g.length > cap(g)).length;
-      return `<div class="deck-class"><div class="deck-head"><b>${esc(D.day)} ${esc(V.fmtTime(t))}</b><span>${items.length} swimmers · ${Object.keys(groups).length} coach${Object.keys(groups).length === 1 ? "" : "es"}</span>${over ? `<span class="cap over">${over} class${over === 1 ? "" : "es"} over capacity</span>` : ""}</div>
-        <div class="ov"><table><thead><tr><th>Coach</th><th>Lane</th><th>Swimmer</th><th>Level</th><th>Age</th>${mg ? "<th>Mobile</th><th>Payment</th>" : ""}</tr></thead><tbody>
-        ${items.map(e => `<tr><td>${esc(e.coach)}</td><td>${esc(e.lane)}</td><td><b>${esc(e.kid.name)}</b></td><td>${lvl(e.kid)}</td><td>${esc(V.ageOf(e.kid))}</td>${mg ? `<td>${phone(e.kid)}</td><td>${paid(e.kid)}</td>` : ""}</tr>`).join("")}
+      return `<div class="deck-class"><div class="deck-head"><b>${esc(D.day)} ${esc(V.fmtTime(t))}</b>${future ? "" : `<span>${pc(items)}/${items.length} present</span>`}${allBtn(items)}<span>${items.length} swimmers · ${Object.keys(groups).length} coach${Object.keys(groups).length === 1 ? "" : "es"}</span>${over ? `<span class="cap over">${over} class${over === 1 ? "" : "es"} over capacity</span>` : ""}</div>
+        <div class="ov"><table><thead><tr><th>Coach</th><th>Lane</th><th>Swimmer</th><th>Level</th><th>Age</th>${mg ? "<th>Mobile</th><th>Payment</th>" : ""}<th>Present</th></tr></thead><tbody>
+        ${items.map(e => `<tr><td>${esc(e.coach)}</td><td>${esc(e.lane)}</td><td><b>${esc(e.kid.name)}</b></td><td>${lvl(e.kid)}</td><td>${esc(V.ageOf(e.kid))}</td>${mg ? `<td>${phone(e.kid)}</td><td>${paid(e.kid)}</td>` : ""}${attCell(e)}</tr>`).join("")}
         </tbody></table></div></div>`;
     }).join("");
   } else {
@@ -101,6 +108,9 @@ function wire(el, list){
   if (q("#dkClear")) q("#dkClear").onclick = () => { D.ageMin = D.ageMax = D.phone = ""; D.coach = "all"; V.render(); };
   if (q("#dkBack")) q("#dkBack").onclick = () => { V.S.view = "swimmers"; V.render(); };
   q("#dkPrint").onclick = () => window.print();
+  el.querySelectorAll("[data-att]").forEach(b => b.onclick = async () => { const k = V.S.kids[b.dataset.att]; if (!k) return; b.disabled = true; const di = WD.indexOf(D.day), r = V.reportOf(k); await V.saveAtt(k, di, !(r && r.att && r.att[di])); });
+  el.querySelectorAll("[data-allp]").forEach(b => b.onclick = async () => { b.disabled = true; b.textContent = "Saving…"; const di = WD.indexOf(D.day);
+    for (const key of b.dataset.allp.split(",")) { const k = V.S.kids[key], r = k && V.reportOf(k); if (k && !(r && r.att && r.att[di])) await V.saveAtt(k, di, true); } V.toast("Marked present ✓"); });
   q("#dkPdf").onclick = async () => { if (!window.VXDP) return V.toast("Reload the page and try again"); V.toast("Preparing PDF…"); await VXDP.build(D.mode, D.day, list); };
   q("#dkXls").onclick = () => {
     if (!window.XLSX) return V.toast("The Excel tool didn't load – reload the page");
