@@ -412,7 +412,7 @@ async function adminSheet(tab){
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
           ${s.managed ? `<button class="btn" data-pw="${esc(uid)}">Set a new password</button>` : `<span class="note">Uses an existing Vortex login – they change their own password.</span>`}
           <button class="btn" data-act="${esc(uid)}">${s.active ? "Turn off access" : "Turn access back on"}</button></div></div>` : ""}`; };
-  const tabs = ad ? `<div class="seg" role="group" aria-label="Section" style="align-self:flex-start">${[["people","People & logins"],["import","Import"],["programs","Levels & programmes"],["branding","Logo & mascots"],["term","Term"]].map(([k,l]) => `<button data-tab="${k}" aria-pressed="${tab===k}">${l}</button>`).join("")}</div>` : "";
+  const tabs = ad ? `<div class="seg" role="group" aria-label="Section" style="align-self:flex-start">${[["people","People & logins"],["import","Import"],["programs","Levels & programmes"],["branding","Logo & mascots"],["excel","Excel sync"],["term","Term"]].map(([k,l]) => `<button data-tab="${k}" aria-pressed="${tab===k}">${l}</button>`).join("")}</div>` : "";
   let body = "";
   if (tab === "people") body = `
     <div class="box"><h3>Who sees what</h3>
@@ -448,6 +448,7 @@ async function adminSheet(tab){
       <label class="f" style="margin-top:10px">Assessment to pass – one per line, up to 5<textarea class="inp" id="pgAssess" rows="5">${esc(P0.assess.join("\n"))}</textarea></label>
       <p class="note">Changes apply to every report from now on, for all coaches. Keep the order of skills the same mid-term so past ratings still line up.</p>
       <div style="display:flex;gap:8px;margin-top:6px"><button class="btn primary" id="pgSave">Save</button><button class="btn ghost" id="pgReset">Restore original</button></div></div>`; }
+  if (tab === "excel") body = `<div id="xsBody"></div>`;
   if (tab === "branding") body = `
     <div class="box"><h3>Logo and level mascots</h3>
       <p class="note" style="margin:0 0 10px">These appear in the app and on every PDF report. PNG or JPG, up to 2 MB. Square images with the character centred work best.</p>
@@ -466,6 +467,7 @@ async function adminSheet(tab){
   const sh = $("#layer .sheet");
   sh.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => adminSheet(b.dataset.tab));
   if (!ad) return;
+  if (tab === "excel" && window.VXS) VXS.mount(document.getElementById("xsBody"));
 
   if (tab === "people") {
     const reopen = async () => { await loadBase(); adminSheet("people"); };
