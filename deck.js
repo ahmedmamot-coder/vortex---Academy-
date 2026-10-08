@@ -34,6 +34,7 @@ st.textContent = `@media print{.top,.levels,#mgBar,.deck-ctl,.toast{display:none
 .dslot-h b{font-size:18px;margin-right:4px}.dslot-h .dsub{font-size:12.5px;color:#B9C2E0}.dslot-h .cap{font-weight:700;font-size:12px;border-radius:8px;padding:3px 9px}.dslot-h .cap.over{background:#f4c7c3;color:#8a1c14}
 .dlv{margin-left:auto;display:flex;gap:6px;align-items:center}.dlvi{position:relative;display:block}.dlvi img{width:36px;height:36px;border-radius:10px;object-fit:cover;display:block;box-shadow:0 0 0 2px rgba(255,255,255,.18)}
 .dlvi i{position:absolute;right:-5px;bottom:-5px;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:#1DFEBF;color:#1B2955;font-style:normal;font-size:10.5px;font-weight:800;line-height:17px;text-align:center}
+.deck-head .dlv{margin-left:12px}.deck-head .att.all + .cap{margin-left:8px}
 .dgrid{display:flex;flex-direction:column;gap:12px;padding:12px;background:#E6EAF5;border-radius:0 0 16px 16px}
 .dcoach{background:var(--surface);border-radius:14px;overflow:hidden;box-shadow:var(--shadow);border-left:5px solid var(--cc)}
 .dcoach-h{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)}
@@ -103,12 +104,14 @@ function render(){
   const allBtn = items => future ? "" : `<button class="att all" data-allp="${esc(items.map(e => e.kid.cid + "/" + e.kid.id).join(","))}">All present</button>`;
   const pc = items => items.filter(e => isP(e.kid)).length, ac = items => items.filter(e => isA(e.kid)).length;
   const rc = e => future ? "" : isP(e.kid) ? "rp" : isA(e.kid) ? "ra" : "";
+  const lvIcons = items => { const lc = {}; items.forEach(e => { lc[e.kid.level] = (lc[e.kid.level] || 0) + 1; });
+    return `<span class="dlv">${Object.keys(lc).map(Number).sort((a, b) => a - b).map(n => { const L = LEVELS[n - 1] || {}; return `<span class="dlvi" title="${esc((L.short || "") + " · " + (L.name || ""))} – ${lc[n]} swimmer${lc[n] === 1 ? "" : "s"}"><img alt="${esc(L.short || "")}" src="data:image/jpeg;base64,${ASSETS["thumb" + n]}"><i>${lc[n]}</i></span>`; }).join("")}</span>`; };
   const title = `<div class="bar"><div><h1>${D.mode === "master" ? "Master decksheet" : "Instructor decksheet"} · ${({Sun:"Sunday",Mon:"Monday",Tue:"Tuesday",Wed:"Wednesday",Thu:"Thursday",Fri:"Friday",Sat:"Saturday"})[D.day]} ${dDate.getDate()} ${V.MON[dDate.getMonth()]}</h1>
     <div class="sub">${list.length} swimmer${list.length === 1 ? "" : "s"}${list.length !== all.length ? ` of ${all.length}` : ""} ${future ? " · upcoming" : ` · <b>${pc(list)} present</b> · <b>${ac(list)} absent</b> · ${list.length - pc(list) - ac(list)} not marked`} · classes are 40 min · max 4 per class, Nitro Needlefish 8</div></div></div>`;
   let body = "";
   const classBlock = (label, sub, items, showCoach) => {
     const c = cap(items), n = items.length, pt = items.every(e => e.kid.level === 9);
-    return `<div class="deck-class"><div class="deck-head"><b>${label}</b><span>${sub}</span>${future ? "" : `<span class="dchip p">✓ ${pc(items)}/${items.length}</span><span class="dchip a">✗ ${ac(items)}</span>`}${allBtn(items)}${pt ? "" : `<span class="cap ${n > c ? "over" : n === c ? "full" : ""}">${n}/${c}${n > c ? " · over capacity" : ""}</span>`}</div>
+    return `<div class="deck-class"><div class="deck-head"><b>${label}</b><span>${sub}</span>${future ? "" : `<span class="dchip p">✓ ${pc(items)}/${items.length}</span><span class="dchip a">✗ ${ac(items)}</span>`}${allBtn(items)}${pt ? "" : `<span class="cap ${n > c ? "over" : n === c ? "full" : ""}">${n}/${c}${n > c ? " · over capacity" : ""}</span>`}${lvIcons(items)}</div>
       <div class="ov"><table><thead><tr>${showCoach ? "<th>Coach</th><th>Lane</th>" : "<th>Lane</th>"}<th>Swimmer</th><th>Level</th><th>Age</th>${mg ? "<th>Mobile</th><th>Payment</th>" : ""}<th>Attendance</th></tr></thead><tbody>
       ${items.map(e => `<tr class="${rc(e)}">${showCoach ? `<td><span class="cch">${esc(e.coach)}</span></td>` : ""}<td><span class="lane">${esc(e.lane || "–")}</span></td><td><b class="swn">${esc(e.kid.name)}</b></td><td>${lvl(e.kid)}</td><td>${esc(V.ageOf(e.kid))}</td>${mg ? `<td>${phone(e.kid)}</td><td>${paid(e.kid)}</td>` : ""}${attCell(e)}</tr>`).join("")}
       </tbody></table></div></div>`;
