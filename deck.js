@@ -28,6 +28,22 @@ st.textContent = `@media print{.top,.levels,#mgBar,.deck-ctl,.toast{display:none
 .attg{background:var(--surface-2);border-radius:22px;padding:3px;gap:3px!important}
 .attg .att{border:0;background:transparent;border-radius:20px;padding:7px 12px}
 .attg .att.on{background:#1DFEBF;color:#1B2955}.attg .att.off{background:#E5484D;color:#fff}
+.dslot{margin-bottom:22px}
+.dslot-h{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:13px 16px 15px;border-radius:16px 16px 0 0;background:linear-gradient(120deg,#1B2955 55%,#1B22E4 140%);color:#fff;position:relative}
+.dslot-h::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;background:linear-gradient(90deg,#1B22E4,#067EEA,#1DFEBF,#8F23D7)}
+.dslot-h b{font-size:18px;margin-right:4px}.dslot-h .dsub{font-size:12.5px;color:#B9C2E0}.dslot-h .cap{margin-left:auto;font-weight:700;font-size:12px;border-radius:8px;padding:3px 9px}.dslot-h .cap.over{background:#f4c7c3;color:#8a1c14}
+.dgrid{display:flex;flex-direction:column;gap:12px;padding:12px;background:#E6EAF5;border-radius:0 0 16px 16px}
+.dcoach{background:var(--surface);border-radius:14px;overflow:hidden;box-shadow:var(--shadow);border-left:5px solid var(--cc)}
+.dcoach-h{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)}
+.cav{width:34px;height:34px;border-radius:50%;background:var(--cc);color:#fff;font-weight:700;display:grid;place-items:center;flex:none}
+.dct{flex:1;min-width:140px}.dct b{display:block;font-size:15px;color:var(--ink)}.dct span{font-size:12px;color:var(--muted)}
+.dcoach-h .cap{font-weight:700;font-size:12px;border-radius:8px;padding:3px 9px;background:#E6EAF5;color:#1B2955}.dcoach-h .cap.full{background:#1DFEBF;color:#1B2955}.dcoach-h .cap.over{background:#f4c7c3;color:#8a1c14}
+.dmini{font-size:12px;font-weight:600;color:var(--muted)}
+.dcoach-h .att.all{background:#1B2955;border-color:#1B2955;color:#fff}
+.dcoach .ov{box-shadow:none;border-radius:0}.dcoach table{min-width:520px}.dcoach td,.dcoach th{text-align:left!important;padding:9px 12px!important;vertical-align:middle}
+.dcoach th{font-size:11px!important;text-transform:uppercase;letter-spacing:.05em;background:var(--surface-2);color:var(--muted)}
+.dcoach tbody tr.rp{background:#F1FFFA}.dcoach tbody tr.ra{background:#FFF6F6}
+@media print{.dgrid{background:none;padding:0}.dcoach{break-inside:avoid;box-shadow:none;border:1px solid #D5DAE6}.dcoach-h .att.all{display:none}}
 .att{border:1.5px solid var(--line);background:var(--surface-2);border-radius:9px;padding:6px 10px;font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap;cursor:pointer}.att.on{background:#d8fff2;border-color:#0E9F7A;color:#06704f}.att.off{background:#ffe1de;border-color:#E5484D;color:#b4231f}.attg{display:inline-flex;gap:6px;flex-wrap:nowrap}
 .deck-head .att.all{margin-left:auto;background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.3);color:#fff}@media print{.att.all{display:none}}`;
 document.head.appendChild(st);
@@ -97,15 +113,19 @@ function render(){
   };
   if (!list.length) body = `<div class="list"><div class="empty"><b>No swimmers</b>${all.length ? "Nothing matches these filters." : `No classes on ${D.day}.`}</div></div>`;
   else if (D.mode === "master") {
+    const CC = ["#067EEA", "#8F23D7", "#1B22E4", "#0E9F7A", "#E46AA8", "#F08A24"], ccol = n => CC[[...V.norm(n)].reduce((a, ch) => a + ch.charCodeAt(0), 0) % CC.length];
     const byTime = {}; list.forEach(e => (byTime[e.time] = byTime[e.time] || []).push(e));
     body = Object.keys(byTime).sort((a, b) => V.timeVal(a) - V.timeVal(b)).map(t => {
-      const items = byTime[t].sort((a, b) => a.coach.localeCompare(b.coach) || a.kid.level - b.kid.level || a.kid.name.localeCompare(b.kid.name));
-      const groups = {}; items.forEach(e => (groups[V.norm(e.coach)] = groups[V.norm(e.coach)] || []).push(e));
-      const over = Object.values(groups).filter(g => !g.every(e => e.kid.level === 9) && g.length > cap(g)).length;
-      return `<div class="deck-class"><div class="deck-head"><b>${esc(D.day)} ${esc(V.fmtTime(t))}</b>${future ? "" : `<span class="dchip p">✓ ${pc(items)}/${items.length} present</span><span class="dchip a">✗ ${ac(items)} absent</span>`}${allBtn(items)}<span>${items.length} swimmers · ${Object.keys(groups).length} coach${Object.keys(groups).length === 1 ? "" : "es"}</span>${over ? `<span class="cap over">${over} class${over === 1 ? "" : "es"} over capacity</span>` : ""}</div>
-        <div class="ov"><table><thead><tr><th>Coach</th><th>Lane</th><th>Swimmer</th><th>Level</th><th>Age</th>${mg ? "<th>Mobile</th><th>Payment</th>" : ""}<th>Attendance</th></tr></thead><tbody>
-        ${items.map(e => `<tr class="${rc(e)}"><td><span class="cch">${esc(e.coach)}</span></td><td><span class="lane">${esc(e.lane || "–")}</span></td><td><b class="swn">${esc(e.kid.name)}</b></td><td>${lvl(e.kid)}</td><td>${esc(V.ageOf(e.kid))}</td>${mg ? `<td>${phone(e.kid)}</td><td>${paid(e.kid)}</td>` : ""}${attCell(e)}</tr>`).join("")}
-        </tbody></table></div></div>`;
+      const items = byTime[t], groups = {}; items.forEach(e => { const k = V.norm(e.coach); (groups[k] = groups[k] || []).push(e); });
+      const gl = Object.values(groups).sort((a, b) => a[0].coach.localeCompare(b[0].coach));
+      const over = gl.filter(g => !g.every(e => e.kid.level === 9) && g.length > cap(g)).length;
+      return `<section class="dslot"><div class="dslot-h"><b>${esc(D.day)} ${esc(V.fmtTime(t))}</b><span class="dsub">${items.length} swimmers · ${gl.length} coach${gl.length === 1 ? "" : "es"}</span>${future ? "" : `<span class="dchip p">✓ ${pc(items)}/${items.length} present</span><span class="dchip a">✗ ${ac(items)} absent</span>`}${over ? `<span class="cap over">${over} over capacity</span>` : ""}</div>
+        <div class="dgrid">${gl.map(g => { g.sort((a, b) => a.kid.level - b.kid.level || a.kid.name.localeCompare(b.kid.name)); const n = g.length, c = cap(g), pt = g.every(e => e.kid.level === 9), lanes = [...new Set(g.map(e => e.lane).filter(Boolean))];
+          return `<div class="dcoach" style="--cc:${ccol(g[0].coach)}"><div class="dcoach-h"><span class="cav">${esc(g[0].coach.charAt(0).toUpperCase())}</span><div class="dct"><b>Coach ${esc(g[0].coach)}</b><span>${lanes.length ? "Lane " + lanes.map(esc).join(", ") + " · " : ""}${n} swimmer${n === 1 ? "" : "s"}</span></div>
+            ${pt ? "" : `<span class="cap ${n > c ? "over" : n === c ? "full" : ""}">${n}/${c}</span>`}${future ? "" : `<span class="dmini">✓ ${pc(g)} · ✗ ${ac(g)}</span>`}${allBtn(g)}</div>
+            <div class="ov"><table><thead><tr><th>Lane</th><th>Swimmer</th><th>Level</th><th>Age</th>${mg ? "<th>Mobile</th><th>Payment</th>" : ""}<th>Attendance</th></tr></thead><tbody>
+            ${g.map(e => `<tr class="${rc(e)}"><td><span class="lane">${esc(e.lane || "–")}</span></td><td><b class="swn">${esc(e.kid.name)}</b></td><td>${lvl(e.kid)}</td><td>${esc(V.ageOf(e.kid))}</td>${mg ? `<td>${phone(e.kid)}</td><td>${paid(e.kid)}</td>` : ""}${attCell(e)}</tr>`).join("")}
+            </tbody></table></div></div>`; }).join("")}</div></section>`;
     }).join("");
   } else {
     const byCoach = {}; list.forEach(e => (byCoach[e.coach] = byCoach[e.coach] || []).push(e));
