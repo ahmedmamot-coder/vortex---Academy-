@@ -11,6 +11,23 @@ st.textContent = `@media print{.top,.levels,#mgBar,.deck-ctl,.toast{display:none
 .deck-class{margin-bottom:14px}.deck-head{display:flex;flex-wrap:wrap;gap:8px;align-items:baseline;padding:10px 16px;background:var(--navy);color:#fff;border-radius:12px 12px 0 0}.deck-head b{font-size:15px}.deck-head span{font-size:12.5px;color:#b9c2e0}
 .deck-head .cap{margin-left:auto;font-weight:600;border-radius:8px;padding:2px 8px;background:rgba(255,255,255,.12);color:#fff}.deck-head .cap.over{background:#f4c7c3;color:#8a1c14}.deck-head .cap.full{background:var(--mint);color:var(--navy)}
 .deck-class .ov{border-radius:0 0 12px 12px}.deck-class table{min-width:520px}.deck-class td,.deck-class th{text-align:left!important;padding:9px 12px!important}.pd{font-size:11px;font-weight:600;border-radius:8px;padding:2px 8px}.pd.y{background:#d8fff2;color:#06704f}.pd.n{background:#ffe1de;color:#b4231f}
+.deck-class{border-radius:16px;overflow:hidden;box-shadow:var(--shadow);background:var(--surface);margin-bottom:16px}
+.deck-head{position:relative;align-items:center;padding:13px 16px 15px;background:linear-gradient(120deg,#1B2955 55%,#1B22E4 140%);border-radius:0!important}
+.deck-head::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;background:linear-gradient(90deg,#1B22E4,#067EEA,#1DFEBF,#8F23D7)}
+.deck-head b{font-size:17px;letter-spacing:-.01em}
+.dchip{font-size:12px;font-weight:700;border-radius:20px;padding:3px 10px;white-space:nowrap}.dchip.p{background:rgba(29,254,191,.16);color:#1DFEBF}.dchip.a{background:rgba(229,72,77,.22);color:#FFB3B5}
+.deck-class .ov{box-shadow:none;border-radius:0}
+.deck-class th{font-size:11px!important;text-transform:uppercase;letter-spacing:.05em;background:var(--surface-2);color:var(--muted)}
+.deck-class td{vertical-align:middle}
+.deck-class tbody tr.rp{background:#F1FFFA}.deck-class tbody tr.rp td:first-child{box-shadow:inset 4px 0 0 #1DFEBF}
+.deck-class tbody tr.ra{background:#FFF6F6}.deck-class tbody tr.ra td:first-child{box-shadow:inset 4px 0 0 #E5484D}
+.cch{display:inline-block;font-weight:600;font-size:12.5px;padding:3px 10px;border-radius:20px;background:rgba(6,126,234,.1);color:#067EEA;white-space:nowrap}
+.lane{display:inline-block;min-width:36px;text-align:center;font-weight:700;font-size:12px;padding:4px 8px;border-radius:8px;background:#1B2955;color:#fff;white-space:nowrap}
+.lvb{display:inline-block;font-weight:700;font-size:11px;color:#fff;background:var(--lc);border-radius:20px;padding:2px 8px;margin-right:6px;vertical-align:1px}.lvn{font-size:13px;color:var(--muted)}
+.swn{font-size:14.5px;color:var(--ink)}
+.attg{background:var(--surface-2);border-radius:22px;padding:3px;gap:3px!important}
+.attg .att{border:0;background:transparent;border-radius:20px;padding:7px 12px}
+.attg .att.on{background:#1DFEBF;color:#1B2955}.attg .att.off{background:#E5484D;color:#fff}
 .att{border:1.5px solid var(--line);background:var(--surface-2);border-radius:9px;padding:6px 10px;font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap;cursor:pointer}.att.on{background:#d8fff2;border-color:#0E9F7A;color:#06704f}.att.off{background:#ffe1de;border-color:#E5484D;color:#b4231f}.attg{display:inline-flex;gap:6px;flex-wrap:nowrap}
 .deck-head .att.all{margin-left:auto;background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.3);color:#fff}@media print{.att.all{display:none}}`;
 document.head.appendChild(st);
@@ -46,7 +63,8 @@ function render(){
   const all = entries(), list = filtered(all);
   const coaches = [...new Set(all.flatMap(e => V.norm(e.coach).split(/[\/,&]+/).map(s => s.trim())).filter(Boolean))].sort();
   const counts = {}; Object.values(V.S.kids).forEach(k => { if (k.active === false || (!mg && k.cid !== V.S.me.coachId)) return; (k.sessions || []).forEach(x => { counts[x.day] = (counts[x.day] || 0) + 1; }); });
-  const lvl = k => { const L = LEVELS[k.level - 1] || {}; return `${esc(L.short || "")} · ${esc(L.name || "")}`; };
+  const LVC = ["#1B22E4", "#067EEA", "#8F23D7", "#0E9F7A", "#1B2955", "#E46AA8", "#C2489A", "#9B2C86", "#F08A24"];
+  const lvl = k => { const L = LEVELS[k.level - 1] || {}; return `<span class="lvb" style="--lc:${LVC[(k.level - 1) % 9]}">${esc(L.code || "")}</span><span class="lvn">${esc(L.name || "")}</span>`; };
   const paid = k => k.paid === true ? `<span class="pd y">Paid</span>` : k.paid === false ? `<span class="pd n">Not paid</span>` : "";
   const phone = k => D.contacts && D.contacts[k.id] ? esc(D.contacts[k.id].join(", ")) : "";
   const ctl = `<div class="bar deck-ctl">
@@ -66,14 +84,15 @@ function render(){
     return `<td><span class="attg"><button class="att ${p ? "on" : ""}" data-att="${key}" data-v="P">✓ Present</button><button class="att ${a ? "off" : ""}" data-att="${key}" data-v="A">✗ Absent</button></span></td>`; };
   const allBtn = items => future ? "" : `<button class="att all" data-allp="${esc(items.map(e => e.kid.cid + "/" + e.kid.id).join(","))}">All present</button>`;
   const pc = items => items.filter(e => isP(e.kid)).length, ac = items => items.filter(e => isA(e.kid)).length;
+  const rc = e => future ? "" : isP(e.kid) ? "rp" : isA(e.kid) ? "ra" : "";
   const title = `<div class="bar"><div><h1>${D.mode === "master" ? "Master decksheet" : "Instructor decksheet"} · ${({Sun:"Sunday",Mon:"Monday",Tue:"Tuesday",Wed:"Wednesday",Thu:"Thursday",Fri:"Friday",Sat:"Saturday"})[D.day]} ${dDate.getDate()} ${V.MON[dDate.getMonth()]}</h1>
     <div class="sub">${list.length} swimmer${list.length === 1 ? "" : "s"}${list.length !== all.length ? ` of ${all.length}` : ""} ${future ? " · upcoming" : ` · <b>${pc(list)} present</b> · <b>${ac(list)} absent</b> · ${list.length - pc(list) - ac(list)} not marked`} · classes are 40 min · max 4 per class, Nitro Needlefish 8</div></div></div>`;
   let body = "";
   const classBlock = (label, sub, items, showCoach) => {
     const c = cap(items), n = items.length, pt = items.every(e => e.kid.level === 9);
-    return `<div class="deck-class"><div class="deck-head"><b>${label}</b><span>${sub}</span>${future ? "" : `<span>${pc(items)} present · ${ac(items)} absent</span>`}${allBtn(items)}${pt ? "" : `<span class="cap ${n > c ? "over" : n === c ? "full" : ""}">${n}/${c}${n > c ? " · over capacity" : ""}</span>`}</div>
+    return `<div class="deck-class"><div class="deck-head"><b>${label}</b><span>${sub}</span>${future ? "" : `<span class="dchip p">✓ ${pc(items)}/${items.length}</span><span class="dchip a">✗ ${ac(items)}</span>`}${allBtn(items)}${pt ? "" : `<span class="cap ${n > c ? "over" : n === c ? "full" : ""}">${n}/${c}${n > c ? " · over capacity" : ""}</span>`}</div>
       <div class="ov"><table><thead><tr>${showCoach ? "<th>Coach</th><th>Lane</th>" : "<th>Lane</th>"}<th>Swimmer</th><th>Level</th><th>Age</th>${mg ? "<th>Mobile</th><th>Payment</th>" : ""}<th>Attendance</th></tr></thead><tbody>
-      ${items.map(e => `<tr>${showCoach ? `<td>${esc(e.coach)}</td>` : ""}<td>${esc(e.lane)}</td><td><b>${esc(e.kid.name)}</b></td><td>${lvl(e.kid)}</td><td>${esc(V.ageOf(e.kid))}</td>${mg ? `<td>${phone(e.kid)}</td><td>${paid(e.kid)}</td>` : ""}${attCell(e)}</tr>`).join("")}
+      ${items.map(e => `<tr class="${rc(e)}">${showCoach ? `<td><span class="cch">${esc(e.coach)}</span></td>` : ""}<td><span class="lane">${esc(e.lane || "–")}</span></td><td><b class="swn">${esc(e.kid.name)}</b></td><td>${lvl(e.kid)}</td><td>${esc(V.ageOf(e.kid))}</td>${mg ? `<td>${phone(e.kid)}</td><td>${paid(e.kid)}</td>` : ""}${attCell(e)}</tr>`).join("")}
       </tbody></table></div></div>`;
   };
   if (!list.length) body = `<div class="list"><div class="empty"><b>No swimmers</b>${all.length ? "Nothing matches these filters." : `No classes on ${D.day}.`}</div></div>`;
@@ -83,9 +102,9 @@ function render(){
       const items = byTime[t].sort((a, b) => a.coach.localeCompare(b.coach) || a.kid.level - b.kid.level || a.kid.name.localeCompare(b.kid.name));
       const groups = {}; items.forEach(e => (groups[V.norm(e.coach)] = groups[V.norm(e.coach)] || []).push(e));
       const over = Object.values(groups).filter(g => !g.every(e => e.kid.level === 9) && g.length > cap(g)).length;
-      return `<div class="deck-class"><div class="deck-head"><b>${esc(D.day)} ${esc(V.fmtTime(t))}</b>${future ? "" : `<span>${pc(items)}/${items.length} present · ${ac(items)} absent</span>`}${allBtn(items)}<span>${items.length} swimmers · ${Object.keys(groups).length} coach${Object.keys(groups).length === 1 ? "" : "es"}</span>${over ? `<span class="cap over">${over} class${over === 1 ? "" : "es"} over capacity</span>` : ""}</div>
+      return `<div class="deck-class"><div class="deck-head"><b>${esc(D.day)} ${esc(V.fmtTime(t))}</b>${future ? "" : `<span class="dchip p">✓ ${pc(items)}/${items.length} present</span><span class="dchip a">✗ ${ac(items)} absent</span>`}${allBtn(items)}<span>${items.length} swimmers · ${Object.keys(groups).length} coach${Object.keys(groups).length === 1 ? "" : "es"}</span>${over ? `<span class="cap over">${over} class${over === 1 ? "" : "es"} over capacity</span>` : ""}</div>
         <div class="ov"><table><thead><tr><th>Coach</th><th>Lane</th><th>Swimmer</th><th>Level</th><th>Age</th>${mg ? "<th>Mobile</th><th>Payment</th>" : ""}<th>Attendance</th></tr></thead><tbody>
-        ${items.map(e => `<tr><td>${esc(e.coach)}</td><td>${esc(e.lane)}</td><td><b>${esc(e.kid.name)}</b></td><td>${lvl(e.kid)}</td><td>${esc(V.ageOf(e.kid))}</td>${mg ? `<td>${phone(e.kid)}</td><td>${paid(e.kid)}</td>` : ""}${attCell(e)}</tr>`).join("")}
+        ${items.map(e => `<tr class="${rc(e)}"><td><span class="cch">${esc(e.coach)}</span></td><td><span class="lane">${esc(e.lane || "–")}</span></td><td><b class="swn">${esc(e.kid.name)}</b></td><td>${lvl(e.kid)}</td><td>${esc(V.ageOf(e.kid))}</td>${mg ? `<td>${phone(e.kid)}</td><td>${paid(e.kid)}</td>` : ""}${attCell(e)}</tr>`).join("")}
         </tbody></table></div></div>`;
     }).join("");
   } else {
