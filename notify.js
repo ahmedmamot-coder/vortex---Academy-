@@ -10,7 +10,7 @@ st.textContent = `#bellBtn{position:relative;border:0;background:rgba(255,255,25
 .nt b{display:block;font-size:14px}.nt span{display:block;font-size:12.5px;color:var(--muted);margin-top:2px}.nt em{font-style:normal;font-size:11px;color:var(--muted);white-space:nowrap;margin-left:auto}
 .nt.un::after{content:"";position:absolute;right:12px;bottom:12px;width:8px;height:8px;border-radius:50%;background:var(--sky)}`;
 document.head.appendChild(st);
-const ICON = { submitted: ["📨", "#E3E6FF"], reviewed: ["✅", "#D8FFF2"], levelup_request: ["⬆️", "#FFF1D6"], levelup_approved: ["🎉", "#D8FFF2"], levelup_declined: ["⏸️", "#FFE1DE"] };
+const ICON = { plan_submitted: ["📝", "#E3E6FF"], plan_reviewed: ["✅", "#D8FFF2"], submitted: ["📨", "#E3E6FF"], reviewed: ["✅", "#D8FFF2"], levelup_request: ["⬆️", "#FFF1D6"], levelup_approved: ["🎉", "#D8FFF2"], levelup_declined: ["⏸️", "#FFE1DE"] };
 const ago = s => { const m = Math.round((Date.now() - new Date(s)) / 6e4); if (m < 1) return "now"; if (m < 60) return m + " min"; const h = Math.round(m / 60); if (h < 24) return h + " h"; const d = Math.round(h / 24); return d < 7 ? d + " d" : new Date(s).toLocaleDateString("en-GB", { day: "numeric", month: "short" }); };
 const unread = () => N.items.filter(n => !N.seen || n.created_at > N.seen).length;
 
@@ -49,6 +49,7 @@ async function markSeen(){
 function open(n){
   const V = X(), l = n.link || {};
   V.closeSheet();
+  if (l.type === "plan") { if (window.VXL) VXL.open(l.coach, l.week, l.level); return; }
   if (l.type === "subs") { if (l.week) V.goWeek(l.week); if (V.mgmt()) { V.S.view = "track"; V.render(); } window.scrollTo(0, 0); return; }
   if (l.type === "levelup") { const k = Object.values(V.S.kids).find(x => x.id === l.swimmer);
     if (k && window.VXT) setTimeout(() => VXT.form(`${k.cid}/${k.id}`, l.id), 60); else V.toast("This swimmer is no longer in the active list"); }

@@ -183,6 +183,7 @@ function renderTop(){
   $("#vDeck")?.classList.toggle("hide", S.view !== "deck");
   $("#vCal")?.classList.toggle("hide", S.view !== "calendar");
   $("#vTrack")?.classList.toggle("hide", S.view !== "track");
+  $("#vPlans")?.classList.toggle("hide", S.view !== "plans");
 }
 function renderLevels(){
   const grp = LEVELS[S.level-1].group;
@@ -256,7 +257,7 @@ function renderOverview(){
     </tbody></table></div>`;
 }
 let rq = 0;
-function render(){ if (S.blocked || rq) return; rq = requestAnimationFrame(() => { rq = 0; if (S.blocked) return; renderTop(); renderLevels(); if (window.VXT) VXT.after(); if (S.view === "overview") renderOverview(); else if (S.view === "timesheet") { if (window.VXP) VXP.renderTimesheet(); } else if (S.view === "deck") { if (window.VXD) VXD.render(); } else if (S.view === "calendar") { if (window.VXC) VXC.render(); } else if (S.view === "track") { if (window.VXT) VXT.render(); } else renderList(); }); }
+function render(){ if (S.blocked || rq) return; rq = requestAnimationFrame(() => { rq = 0; if (S.blocked) return; renderTop(); renderLevels(); if (window.VXT) VXT.after(); if (S.view === "overview") renderOverview(); else if (S.view === "timesheet") { if (window.VXP) VXP.renderTimesheet(); } else if (S.view === "deck") { if (window.VXD) VXD.render(); } else if (S.view === "calendar") { if (window.VXC) VXC.render(); } else if (S.view === "track") { if (window.VXT) VXT.render(); } else if (S.view === "plans") { if (window.VXL) VXL.render(); } else renderList(); }); }
 
 /* ---------- sheets ---------- */
 let closeHook = null;

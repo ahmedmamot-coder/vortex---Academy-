@@ -55,6 +55,7 @@ const ic = {
   cal: '<rect x="3" y="4" width="18" height="17" rx="3"/><path d="M3 9h18M8 2v4M16 2v4"/>',
   more: '<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>',
   send: '<path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>',
+  plan: '<path d="M9 6h11M9 12h11M9 18h11M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/>',
   me: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/>'
 };
 const svg = k => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ic[k]}</svg>`;
@@ -63,7 +64,7 @@ let built = "";
 const go = v => { const V = X(); V.S.view = v; V.render(); window.scrollTo(0, 0); };
 const click = id => { const b = document.getElementById(id); if (b) b.click(); };
 function more(){
-  const V = X(), items = [["Coaches overview", () => go("overview")], ["Timesheets", () => go("timesheet")], ["Register a swimmer", () => click("regBtn")], ["Admin settings / Team", () => click("teamBtn")], ["My account", () => click("meBtn")]];
+  const V = X(), items = [["Lesson plans", () => go("plans")], ["Coaches overview", () => go("overview")], ["Timesheets", () => go("timesheet")], ["Register a swimmer", () => click("regBtn")], ["Admin settings / Team", () => click("teamBtn")], ["My account", () => click("meBtn")]];
   V.openSheet(`${V.head("More", "Vortex Swimming Academy")}<div class="sh-body mmenu">${items.map((it, i) => `<button class="btn" data-mi="${i}">${it[0]}</button>`).join("")}</div>`, true);
   document.querySelectorAll("[data-mi]").forEach(b => b.onclick = () => { V.closeSheet(); setTimeout(items[+b.dataset.mi][1], 30); });
 }
@@ -73,12 +74,12 @@ function build(){
   if (built !== key) {
     built = key;
     const items = mg ? [["swimmers", "swim", "Swimmers"], ["track", "track", "Tracking"], ["deck", "deck", "Decksheets"], ["calendar", "cal", "Calendar"], ["more", "more", "More"]]
-                     : [["swimmers", "swim", "Swimmers"], ["calendar", "cal", "Calendar"], ["deck", "deck", "Decksheet"], ["submit", "send", "Submit"], ["me", "me", "Account"]];
+                     : [["swimmers", "swim", "Swimmers"], ["plans", "plan", "Plans"], ["deck", "deck", "Decksheet"], ["calendar", "cal", "Calendar"], ["submit", "send", "Submit"]];
     nav.innerHTML = items.map(([v, i, l]) => `<button data-nv="${v}">${svg(i)}<span>${l}</span></button>`).join("");
     nav.querySelectorAll("[data-nv]").forEach(b => b.onclick = () => { const v = b.dataset.nv;
       if (v === "more") return more(); if (v === "submit") { go("swimmers"); return setTimeout(() => click("subBtn"), 60); } if (v === "me") return click("meBtn"); go(v); });
   }
-  nav.querySelectorAll("[data-nv]").forEach(b => b.setAttribute("aria-current", String(b.dataset.nv === V.S.view || (b.dataset.nv === "more" && ["overview", "timesheet"].includes(V.S.view)))));
+  nav.querySelectorAll("[data-nv]").forEach(b => b.setAttribute("aria-current", String(b.dataset.nv === V.S.view || (b.dataset.nv === "more" && ["overview", "timesheet", "plans"].includes(V.S.view)))));
 }
 function label(){
   document.querySelectorAll(".ov table").forEach(t => { const th = [...t.querySelectorAll("thead th")].map(x => x.textContent.trim()); if (!th.length) return;
