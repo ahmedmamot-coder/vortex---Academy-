@@ -30,7 +30,7 @@ async function build(mode, day, list){
     try { doc.addImage("data:image/png;base64," + ASSETS.logo, "PNG", M + 4, 15, 32, 32); } catch (e) {}
     font("bold", 7.5, MINT); txt("VORTEX SWIMMING ACADEMY", M + 52, 25);
     font("bold", 18, "#FFFFFF"); txt(`${title} · ${DAYN[day]}`, M + 52, 45);
-    font("normal", 8, SOFT); txt(`${V.S.term && V.S.term.name ? V.S.term.name + " · " : ""}${total} swimmers · 40-min classes · max 4 per class (Nitro Needlefish 8)`, W - M, 27, { align: "right" });
+    font("normal", 8, SOFT); txt(`${V.S.term && V.S.term.name ? V.S.term.name + " · " : ""}${PROGS[V.S.program].name} · ${total} swimmers · 40-min classes · ${({ kids: "max 4 per class (Nitro Needlefish 8)", ladies: "swim levels max 6 · Aqua open group", men: "swim levels max 6 · Group PT 4" })[V.S.program] || ""}`, W - M, 27, { align: "right" });
     txt(`Printed ${dateStr} · page ${page}`, W - M, 41, { align: "right" });
     grad(0, 62, W, 3);
     font("normal", 6.5, GREY); txt("Hamad Aquatic Center · Aspire Zone, Doha", M, H - 12); txt(title, W - M, H - 12, { align: "right" });
@@ -49,14 +49,14 @@ async function build(mode, day, list){
       const row = classes.slice(i, i + COLS), h = Math.max(...row.map(c => cardH(c.items.length)));
       if (y + h > H - 26) { header(); }
       row.forEach((c, j) => {
-        const x = M + j * (CW + GAP), n = c.items.length, pt = c.items.every(e => e.kid.level === 9), max = c.items.every(e => e.kid.level === 5) ? 8 : 4;
+        const x = M + j * (CW + GAP), n = c.items.length, pt = c.items.every(e => lvPT(e.kid.level)), max = Math.min(...c.items.map(e => lvMax(e.kid.level)));
         const over = !pt && n > max, full = !pt && n === max;
         fill("#FFFFFF"); doc.setDrawColor(LINE); doc.setLineWidth(0.8); doc.roundedRect(x, y, CW, h, 8, 8, "FD");
         fill(NAVY); doc.roundedRect(x, y, CW, HEADH, 8, 8, "F"); doc.rect(x, y + HEADH - 8, CW, 8, "F");
         font("bold", 10, "#FFFFFF"); txt(fit(c.head, CW - 52), x + 9, y + 16);
         font("normal", 7, SOFT); txt(fit(c.sub, CW - 52), x + 9, y + 30);
         if (!pt) { fill(over ? "#F4C7C3" : full ? MINT : "#2C3A63"); doc.roundedRect(x + CW - 40, y + 9, 32, 14, 7, 7, "F");
-          font("bold", 8, over ? "#8A1C14" : full ? NAVY : "#FFFFFF"); txt(`${n}/${max}`, x + CW - 24, y + 19, { align: "center" }); }
+          font("bold", 8, over ? "#8A1C14" : full ? NAVY : "#FFFFFF"); txt(max === Infinity ? String(n) : `${n}/${max}`, x + CW - 24, y + 19, { align: "center" }); }
         c.items.forEach((e, r) => {
           const ry = y + HEADH + 3 + r * ROWH, L = LEVELS[e.kid.level - 1] || { code: "", short: "" };
           if (r % 2) { fill(CARD); doc.rect(x + 1, ry, CW - 2, ROWH, "F"); }

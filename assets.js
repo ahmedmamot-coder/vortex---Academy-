@@ -41,11 +41,12 @@ async function loadAssets(){
   else lx.drawImage(drawLogo(256), 0, 0);
   ASSETS.logoURL = lc.toDataURL("image/png"); ASSETS.logo = ASSETS.logoURL.split(",")[1];
   const logo = lc;
-  for (let n = 1; n <= 9; n++) {
-    const kind = n === 9 ? "lanes" : "bubbles", im = n <= 5 ? masc[n - 1] : null;
+  for (let n = 1; n <= LEVELS.length; n++) {
+    const LV = LEVELS[n - 1] || {}, adult = n > 9, kind = n === 9 || LV.pt || LV.group === "apt" ? "lanes" : "bubbles", im = n <= 5 ? masc[n - 1] : null;
     // PDF banner strip (140 x 88 pt → 280 x 176 px)
     const [c, x] = cv(280, 176); drawArt(x, 280, 176, kind, n * 7);
     if (im) { const s = Math.min(176 / im.width, 176 / im.height); x.drawImage(im, 280 - 14 - im.width * s, (176 - im.height * s) / 2, im.width * s, im.height * s); }
+    else if (adult) { x.fillStyle = "rgba(255,255,255,.16)"; x.font = `bold ${LV.badge.length > 1 ? 96 : 150}px Poppins, Arial, sans-serif`; x.textAlign = "center"; x.textBaseline = "middle"; x.fillText(LV.badge, 196, 96); x.drawImage(logo, 280 - 120, 40, 96, 96); }
     else if (n <= 5) { x.fillStyle = "rgba(255,255,255,.12)"; x.font = "bold 150px Poppins, Arial, sans-serif"; x.textAlign = "center"; x.textBaseline = "middle"; x.fillText(String(n), 200, 96); x.drawImage(logo, 280 - 120, 40, 96, 96); }
     else x.drawImage(logo, 280 - 146, 24, 128, 128);
     const g = x.createLinearGradient(0, 0, 112, 0); g.addColorStop(0, "rgba(27,41,85,1)"); g.addColorStop(1, "rgba(27,41,85,0)"); x.fillStyle = g; x.fillRect(0, 0, 112, 176);
@@ -55,6 +56,8 @@ async function loadAssets(){
     // square tile thumbnail
     const [t, y] = cv(160, 160); drawArt(y, 160, 160, kind, n * 11);
     if (im) { const s = Math.min(150 / im.width, 150 / im.height); y.drawImage(im, (160 - im.width * s) / 2, (160 - im.height * s) / 2, im.width * s, im.height * s); }
+    else if (adult) { const col = LV.group === "aqua" ? "#8F23D7" : LV.group === "apt" ? "#067EEA" : "#1B22E4"; y.fillStyle = col; y.beginPath(); y.arc(80, 80, 58, 0, 7); y.fill();
+      y.strokeStyle = "#1DFEBF"; y.lineWidth = 5; y.stroke(); y.fillStyle = "#fff"; y.font = `bold ${LV.badge.length > 1 ? 44 : 64}px Poppins, Arial, sans-serif`; y.textAlign = "center"; y.textBaseline = "middle"; y.fillText(LV.badge, 80, 84); }
     else { y.drawImage(logo, 32, 32, 96, 96); }
     ASSETS["thumb" + n] = t.toDataURL("image/jpeg", .85).split(",")[1];
   }

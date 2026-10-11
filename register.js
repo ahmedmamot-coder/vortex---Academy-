@@ -2,16 +2,16 @@
 (() => {
 const X = () => window.VX;
 const WD = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-const STATUS = ["Confirmed","TBC","Complimentary","Second Session","Staff"];
-const cap = lvl => lvl === 5 ? 8 : 4;
+const STATUS_K = ["Confirmed","TBC","Complimentary","Second Session","Staff"], STATUS_A = ["Active","Confirmed","TBC","Trial","Complimentary","Freeze","Expired","Finished"];
+const cap = lvl => lvMax(lvl);
 const short = n => String(n || "").replace(/^coach\s+/i, "").trim();
 const tcase = s => String(s || "").trim().replace(/\s+/g, " ").toLowerCase().replace(/(^|[\s\-'\/])(\p{L})/gu, (a, b, c) => b + c.toUpperCase());
 function slotCount(day, time, coach, skipId){
   const V = X(), t = V.timeVal(time), c = V.norm(coach); if (!time || !coach) return null;
-  let n = 0, lv5 = true;
+  let n = 0, mx = Infinity;
   Object.values(V.S.kids).forEach(k => { if (k.active === false || k.id === skipId) return;
-    (k.sessions || []).forEach(x => { if (x.day === day && V.timeVal(x.time) === t && V.norm(x.coach || short(V.coachName(k.cid))).split(/[\/,&]+/).map(s => s.trim()).includes(c)) { n++; if (k.level !== 5) lv5 = false; } }); });
-  return { n, lv5 };
+    (k.sessions || []).forEach(x => { if (x.day === day && V.timeVal(x.time) === t && V.norm(x.coach || short(V.coachName(k.cid))).split(/[\/,&]+/).map(s => s.trim()).includes(c)) { n++; mx = Math.min(mx, lvMax(k.level)); } }); });
+  return { n, mx };
 }
 async function open(kidId){
   const V = X(), esc = V.esc; if (!V.mgmt()) return V.toast("Only management can register swimmers");
@@ -29,7 +29,7 @@ async function open(kidId){
   const phones = ct.phones || [];
   V.openSheet(`${V.head(edit ? "Edit registration" : "Register a new swimmer", edit ? row.name : (tr.name || "Academy"))}<div class="sh-body">
     <div class="box"><h3>Registration</h3><div class="grid4">
-      <label class="f">Status<select class="inp" id="rgStatus">${opt(STATUS, row.reg_status || "Confirmed")}</select></label>
+      <label class="f">Status<select class="inp" id="rgStatus">${opt((row.program || V.S.program) === "kids" ? STATUS_K : STATUS_A, row.reg_status || ((row.program || V.S.program) === "kids" ? "Confirmed" : "Active"))}</select></label>
       <label class="f">New or existing<select class="inp" id="rgNew"><option value="1" ${row.is_new !== false ? "selected" : ""}>New</option><option value="0" ${row.is_new === false ? "selected" : ""}>Existing</option></select></label>
       <label class="f">Term<input class="inp" id="rgTerm" value="${esc(row.term || tr.name || "")}"></label>
       <label class="f">From which term<input class="inp" id="rgFrom" value="${esc(row.from_term || "")}" placeholder="e.g. Term 3 2026"></label>
@@ -40,7 +40,7 @@ async function open(kidId){
       <label class="f">First name *<input class="inp" id="rgFirst" value="${esc(nm[0])}" autofocus></label>
       <label class="f">Family name *<input class="inp" id="rgFamily" value="${esc(nm[1])}"></label>
       <label class="f">Date of birth *<input class="inp" type="date" id="rgDob" value="${esc(row.dob || "")}"></label>
-      <label class="f">Gender<select class="inp" id="rgGender"><option value="">–</option>${opt(["M","F"], row.gender)}</select></label>
+      <label class="f">Gender<select class="inp" id="rgGender"><option value="">–</option>${opt(["M","F"], row.gender || PROGS[row.program || V.S.program].sex)}</select></label>
       <label class="f">Nationality<input class="inp" id="rgNat" value="${esc(row.nationality || "")}"></label>
       <label class="f">QID<input class="inp" id="rgQid" inputmode="numeric" value="${esc(ct.qid || "")}"></label>
       <label class="f">Sibling no.<input class="inp" id="rgSib" value="${esc(row.sibling || "")}" placeholder="1, 2…"></label>
@@ -53,7 +53,7 @@ async function open(kidId){
       <label class="f">Email 2<input class="inp" id="rgE2" type="email" value="${esc(ct.email2 || "")}"></label>
     </div></div>
     <div class="box" style="--c:var(--royal)"><h3>Level</h3>
-      <select class="inp" id="rgLevel">${LEVELS.map((L, i) => `<option value="${i + 1}" ${(row.level || 1) === i + 1 ? "selected" : ""}>${esc(L.short)} · ${esc(L.name)}</option>`).join("")}</select></div>
+      <select class="inp" id="rgLevel">${progLevels(row.program || V.S.program).map(n => `<option value="${n}" ${(row.level || progLevels()[0]) === n ? "selected" : ""}>${esc(LEVELS[n - 1].short)} · ${esc(LEVELS[n - 1].name)}</option>`).join("")}</select></div>
     <div class="box" style="--c:var(--mint)"><h3>Days, times, coach and lane <small>fill the days they swim</small></h3>
       ${WD.map(d => { const s = ses[d] || {}; return `<div class="as" style="flex-wrap:wrap"><b style="width:40px">${d}</b>
         <input class="inp" data-rt="${d}" list="rgT${d}" placeholder="Time e.g. 4:15 pm" value="${esc(s.time ? V.fmtTime(s.time) : "")}" style="width:140px">
@@ -70,8 +70,8 @@ async function open(kidId){
     const lvl = +q("#rgLevel").value;
     WD.forEach(d => { const t = q(`[data-rt="${d}"]`).value.trim(), c = q(`[data-rc="${d}"]`).value, el = q(`[data-rs="${d}"]`);
       const r = slotCount(d, t, c, kidId); if (!r) { el.textContent = ""; return; }
-      const max = r.lv5 && lvl === 5 ? 8 : 4, n = r.n + 1;
-      el.textContent = `${n}/${max} in this class${n > max ? " – over capacity" : ""}`; el.style.color = n > max ? "#b4231f" : n === max ? "#06704f" : ""; });
+      const max = Math.min(r.mx, lvMax(lvl)), n = r.n + 1;
+      el.textContent = max === Infinity ? `${n} in this class` : `${n}/${max} in this class${n > max ? " – over capacity" : ""}`; el.style.color = n > max ? "#b4231f" : n === max ? "#06704f" : ""; });
   };
   sh.addEventListener("input", upd); sh.addEventListener("change", upd); upd();
   q("#rgSave").onclick = async ev => {
@@ -91,7 +91,7 @@ async function open(kidId){
     b.disabled = true; b.textContent = "Saving…";
     const id = kidId || "k" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
     const pv = q("#rgPaid").value;
-    const rec = { id, coach_id: cid, name, first_name: first, family_name: family, dob, level: +q("#rgLevel").value, sessions, active: true,
+    const rec = { id, coach_id: cid, program: row.program || V.S.program, name, first_name: first, family_name: family, dob, level: +q("#rgLevel").value, sessions, active: !/expired|finish/i.test(q("#rgStatus").value),
       term: q("#rgTerm").value.trim() || null, start_date: q("#rgStart").value || null, paid: pv === "" ? null : pv === "1",
       reg_status: q("#rgStatus").value, is_new: q("#rgNew").value === "1", gender: q("#rgGender").value || null, nationality: tcase(q("#rgNat").value) || null,
       sibling: q("#rgSib").value.trim() || null, kit: q("#rgKit").value.trim() || null, from_term: q("#rgFrom").value.trim() || null, notes: q("#rgNotes").value.trim() || null,

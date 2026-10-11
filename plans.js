@@ -21,6 +21,14 @@ const EXTRA_MAIN = {
   8: [["Front glide to parent", "1 m glide, face in", 6], ["Jump & turn to wall", "Jump in, turn, reach the wall", 6]],
   9: [["Technique focus", "Coach chooses the stroke focus for this swimmer", 10], ["Pace & endurance", "Repeat distances with rest", 10]]
 };
+/* Adult and Aqua programmes */
+EXTRA_MAIN[10] = [["Wall breathing", "Hold the wall, face in, bubbles out for 5 s, lift to breathe – 10 reps", 4], ["Supported star float", "Front then back star float with a noodle, stand up safely", 5], ["Shallow-end walk & glide", "Walk, lean forward and glide to the wall", 5]];
+EXTRA_MAIN[11] = [["Push & glide", "Streamline push from the wall, hold the glide, stand", 5], ["Board kick", "4 × 10m flutter kick with a board, face in", 6], ["Roll over", "Front float, roll to back float and recover – 6 reps", 4]];
+EXTRA_MAIN[12] = [["Catch-up freestyle", "4 × 12.5m, one arm waits for the other, side breathing", 7], ["Back kick with board on chest", "4 × 12.5m, ears in, hips up", 6], ["Tread water", "3 × 30 s with rest, eggbeater or scissor kick", 5]];
+EXTRA_MAIN[13] = [["3-stroke breathing", "4 × 25m freestyle, breathe every 3", 8], ["Breaststroke kick on the back", "4 × 12.5m, heels to bottom, snap", 6], ["Open turn practice", "Touch, turn, push and continue – 8 reps", 5]];
+EXTRA_MAIN[14] = [["Pace-clock set", "6 × 50m freestyle on a set time, steady pace", 10], ["Stroke mix", "4 × 25m: back, breast, free, choice", 7], ["Flip turn intro", "Somersault from a glide, then on the wall", 5]];
+EXTRA_MAIN[17] = [["Water jogging", "3 min, knees high, arms pumping, shoulder-deep", 4], ["Cardio intervals", "Jumping jacks, cross-country, tuck jumps – 30 s on / 15 s off × 6", 6], ["Resistance with aqua gloves", "Push-pull, arm sweeps and punches – 3 × 45 s", 6], ["Noodle core", "Sit on the noodle: bicycle, knee tucks, balance holds", 5], ["Kickboard lunges", "Walking lunges pushing the board through the water", 4]];
+EXTRA_MAIN[18] = EXTRA_MAIN[17].concat([["Personal goal block", "Exercises chosen for the client's goal (mobility, strength, rehab)", 8]]);
 const P = { level: 0, coach: "", plan: null, row: null, key: "", loading: false, timer: null, custom: null, overview: {}, ovKey: "" };
 const st = document.createElement("style");
 st.textContent = `.lp-l{background:var(--surface);border-radius:16px;box-shadow:var(--shadow);overflow:hidden;margin-bottom:14px}
@@ -84,7 +92,7 @@ function render(){
     el.querySelectorAll("[data-lpc]").forEach(r => r.onclick = () => { V.S.coachSel = r.dataset.lpc; V.render(); });
     return; }
   if (!P.coach) { el.innerHTML = head + `<div class="list"><div class="empty">Your login isn't linked to a coach yet – ask an academy admin.</div></div>`; return; }
-  const lv = coachLevels(P.coach); const all = LEVELS.map((_, i) => i + 1);
+  const lv = coachLevels(P.coach); const all = progLevels();
   if (!P.level || !all.includes(P.level)) P.level = lv[0] || 1;
   loadPlan(); loadCustom();
   const r = P.row, stt = r ? r.status : "none";

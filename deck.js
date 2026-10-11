@@ -3,7 +3,8 @@
 const X = () => window.VX;
 const WD = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 const D = { mode: "", day: WD[new Date().getDay()], coach: "all", ageMin: "", ageMax: "", phone: "", contacts: null, loading: false };
-const cap = list => list.every(e => e.kid.level === 5) ? 8 : 4;
+const CAP_TXT = () => ({ kids: "max 4 per class, Nitro Needlefish 8", ladies: "swim levels max 6 per class, Aqua aerobics open group", men: "swim levels max 6 per class (Level 5: 8), group PT 4" })[VX.S.program] || "";
+const cap = list => list.length ? Math.min(...list.map(e => lvMax(e.kid.level))) : 4;
 const yearsOf = k => { if (k.dob) { const b = X().fromIso(k.dob), n = new Date(); let y = n.getFullYear() - b.getFullYear(); if (n.getMonth() < b.getMonth() || (n.getMonth() === b.getMonth() && n.getDate() < b.getDate())) y--; return y; } const a = parseInt(k.age, 10); return isNaN(a) ? null : a; };
 const digits = s => String(s || "").replace(/\D/g, "");
 const st = document.createElement("style");
@@ -107,11 +108,11 @@ function render(){
   const lvIcons = items => { const lc = {}; items.forEach(e => { lc[e.kid.level] = (lc[e.kid.level] || 0) + 1; });
     return `<span class="dlv">${Object.keys(lc).map(Number).sort((a, b) => a - b).map(n => { const L = LEVELS[n - 1] || {}; return `<span class="dlvi" title="${esc((L.short || "") + " · " + (L.name || ""))} – ${lc[n]} swimmer${lc[n] === 1 ? "" : "s"}"><img alt="${esc(L.short || "")}" src="data:image/jpeg;base64,${ASSETS["thumb" + n]}"><i>${lc[n]}</i></span>`; }).join("")}</span>`; };
   const title = `<div class="bar"><div><h1>${D.mode === "master" ? "Master decksheet" : "Instructor decksheet"} · ${({Sun:"Sunday",Mon:"Monday",Tue:"Tuesday",Wed:"Wednesday",Thu:"Thursday",Fri:"Friday",Sat:"Saturday"})[D.day]} ${dDate.getDate()} ${V.MON[dDate.getMonth()]}</h1>
-    <div class="sub">${list.length} swimmer${list.length === 1 ? "" : "s"}${list.length !== all.length ? ` of ${all.length}` : ""} ${future ? " · upcoming" : ` · <b>${pc(list)} present</b> · <b>${ac(list)} absent</b> · ${list.length - pc(list) - ac(list)} not marked`} · classes are 40 min · max 4 per class, Nitro Needlefish 8</div></div></div>`;
+    <div class="sub">${list.length} swimmer${list.length === 1 ? "" : "s"}${list.length !== all.length ? ` of ${all.length}` : ""} ${future ? " · upcoming" : ` · <b>${pc(list)} present</b> · <b>${ac(list)} absent</b> · ${list.length - pc(list) - ac(list)} not marked`} · classes are 40 min · ${CAP_TXT()}</div></div></div>`;
   let body = "";
   const classBlock = (label, sub, items, showCoach) => {
-    const c = cap(items), n = items.length, pt = items.every(e => e.kid.level === 9);
-    return `<div class="deck-class"><div class="deck-head"><b>${label}</b><span>${sub}</span>${future ? "" : `<span class="dchip p">✓ ${pc(items)}/${items.length}</span><span class="dchip a">✗ ${ac(items)}</span>`}${allBtn(items)}${pt ? "" : `<span class="cap ${n > c ? "over" : n === c ? "full" : ""}">${n}/${c}${n > c ? " · over capacity" : ""}</span>`}${lvIcons(items)}</div>
+    const c = cap(items), n = items.length, pt = items.every(e => lvPT(e.kid.level));
+    return `<div class="deck-class"><div class="deck-head"><b>${label}</b><span>${sub}</span>${future ? "" : `<span class="dchip p">✓ ${pc(items)}/${items.length}</span><span class="dchip a">✗ ${ac(items)}</span>`}${allBtn(items)}${pt ? "" : `<span class="cap ${n > c ? "over" : n === c ? "full" : ""}">${c === Infinity ? n + " in class" : n + "/" + c}${n > c ? " · over capacity" : ""}</span>`}${lvIcons(items)}</div>
       <div class="ov"><table><thead><tr>${showCoach ? "<th>Coach</th><th>Lane</th>" : "<th>Lane</th>"}<th>Swimmer</th><th>Level</th><th>Age</th>${mg ? "<th>Mobile</th><th>Payment</th>" : ""}<th>Attendance</th></tr></thead><tbody>
       ${items.map(e => `<tr class="${rc(e)}">${showCoach ? `<td><span class="cch">${esc(e.coach)}</span></td>` : ""}<td><span class="lane">${esc(e.lane || "–")}</span></td><td><b class="swn">${esc(e.kid.name)}</b></td><td>${lvl(e.kid)}</td><td>${esc(V.ageOf(e.kid))}</td>${mg ? `<td>${phone(e.kid)}</td><td>${paid(e.kid)}</td>` : ""}${attCell(e)}</tr>`).join("")}
       </tbody></table></div></div>`;
@@ -123,12 +124,12 @@ function render(){
     body = Object.keys(byTime).sort((a, b) => V.timeVal(a) - V.timeVal(b)).map(t => {
       const items = byTime[t], groups = {}; items.forEach(e => { const k = V.norm(e.coach); (groups[k] = groups[k] || []).push(e); });
       const gl = Object.values(groups).sort((a, b) => a[0].coach.localeCompare(b[0].coach));
-      const over = gl.filter(g => !g.every(e => e.kid.level === 9) && g.length > cap(g)).length;
+      const over = gl.filter(g => !g.every(e => lvPT(e.kid.level)) && g.length > cap(g)).length;
       return `<section class="dslot"><div class="dslot-h"><b>${esc(D.day)} ${esc(V.fmtTime(t))}</b><span class="dsub">${items.length} swimmers · ${gl.length} coach${gl.length === 1 ? "" : "es"}</span>${future ? "" : `<span class="dchip p">✓ ${pc(items)}/${items.length} present</span><span class="dchip a">✗ ${ac(items)} absent</span>`}${over ? `<span class="cap over">${over} over capacity</span>` : ""}${(() => { const lc = {}; items.forEach(e => { lc[e.kid.level] = (lc[e.kid.level] || 0) + 1; });
         return `<span class="dlv">${Object.keys(lc).map(Number).sort((a, b) => a - b).map(n => { const L = LEVELS[n - 1] || {}; return `<span class="dlvi" title="${esc((L.short || "") + " · " + (L.name || ""))} – ${lc[n]} swimmer${lc[n] === 1 ? "" : "s"}"><img alt="${esc(L.short || "")}" src="data:image/jpeg;base64,${ASSETS["thumb" + n]}"><i>${lc[n]}</i></span>`; }).join("")}</span>`; })()}</div>
-        <div class="dgrid">${gl.map(g => { g.sort((a, b) => a.kid.level - b.kid.level || a.kid.name.localeCompare(b.kid.name)); const n = g.length, c = cap(g), pt = g.every(e => e.kid.level === 9), lanes = [...new Set(g.map(e => e.lane).filter(Boolean))];
+        <div class="dgrid">${gl.map(g => { g.sort((a, b) => a.kid.level - b.kid.level || a.kid.name.localeCompare(b.kid.name)); const n = g.length, c = cap(g), pt = g.every(e => lvPT(e.kid.level)), lanes = [...new Set(g.map(e => e.lane).filter(Boolean))];
           return `<div class="dcoach" style="--cc:${ccol(g[0].coach)}"><div class="dcoach-h"><span class="cav">${esc(g[0].coach.charAt(0).toUpperCase())}</span><div class="dct"><b>Coach ${esc(g[0].coach)}</b><span>${lanes.length ? "Lane " + lanes.map(esc).join(", ") + " · " : ""}${n} swimmer${n === 1 ? "" : "s"}</span></div>
-            ${pt ? "" : `<span class="cap ${n > c ? "over" : n === c ? "full" : ""}">${n}/${c}</span>`}${future ? "" : `<span class="dmini">✓ ${pc(g)} · ✗ ${ac(g)}</span>`}${allBtn(g)}</div>
+            ${pt ? "" : `<span class="cap ${n > c ? "over" : n === c ? "full" : ""}">${c === Infinity ? n + " in class" : n + "/" + c}</span>`}${future ? "" : `<span class="dmini">✓ ${pc(g)} · ✗ ${ac(g)}</span>`}${allBtn(g)}</div>
             <div class="ov"><table><thead><tr><th>Lane</th><th>Swimmer</th><th>Level</th><th>Age</th>${mg ? "<th>Mobile</th><th>Payment</th>" : ""}<th>Attendance</th></tr></thead><tbody>
             ${g.map(e => `<tr class="${rc(e)}"><td><span class="lane">${esc(e.lane || "–")}</span></td><td><b class="swn">${esc(e.kid.name)}</b></td><td>${lvl(e.kid)}</td><td>${esc(V.ageOf(e.kid))}</td>${mg ? `<td>${phone(e.kid)}</td><td>${paid(e.kid)}</td>` : ""}${attCell(e)}</tr>`).join("")}
             </tbody></table></div></div>`; }).join("")}</div></section>`;

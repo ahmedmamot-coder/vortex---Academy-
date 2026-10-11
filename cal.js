@@ -80,8 +80,8 @@ function openDay(ds){
   const V = X(), esc = V.esc, d = V.fromIso(ds), today = ymd(new Date()), past = ds <= today, cl = classesOn(ds);
   const label = `${["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][d.getDay()]} ${d.getDate()} ${V.MON[d.getMonth()]} ${d.getFullYear()}`;
   V.openSheet(`${V.head(label, `${cl.length} classes · ${cl.reduce((a, c) => a + c.kids.length, 0)} swimmers${past ? "" : " · upcoming"}`)}<div class="sh-body">
-    ${cl.map(c => { const max = c.kids.every(x => x.k.level === 5) ? 8 : 4, n = c.kids.length, a = c.kids.filter(x => x.att).length;
-      return `<div class="box" style="--c:${past ? (a ? "var(--mint)" : "#f0b400") : "var(--sky)"}"><h3>${esc(V.fmtTime(c.time))} · Coach ${esc(c.coach)}<small>${c.lanes.size ? "Lane " + [...c.lanes].map(esc).join(", ") + " · " : ""}${n}/${max}${past ? ` · ${a} present` : ""}</small></h3>
+    ${cl.map(c => { const max = Math.min(...c.kids.map(x => lvMax(x.k.level))), n = c.kids.length, a = c.kids.filter(x => x.att).length;
+      return `<div class="box" style="--c:${past ? (a ? "var(--mint)" : "#f0b400") : "var(--sky)"}"><h3>${esc(V.fmtTime(c.time))} · Coach ${esc(c.coach)}<small>${c.lanes.size ? "Lane " + [...c.lanes].map(esc).join(", ") + " · " : ""}${max === Infinity ? n + " swimmers" : n + "/" + max}${past ? ` · ${a} present` : ""}</small></h3>
         ${c.kids.sort((p, q) => p.k.name.localeCompare(q.k.name)).map(x => `<div class="as"><span>${esc(x.k.name)} <span class="note" style="margin:0">· ${esc((LEVELS[x.k.level - 1] || {}).short || "")}</span></span>
           ${past ? `<span class="pill ${x.att ? "done" : x.marked ? "todo" : "wip"}">${x.att ? "Present" : x.marked ? "Absent" : "Not marked"}</span>` : ""}</div>`).join("")}</div>`; }).join("") || `<div class="empty">No classes on this day.</div>`}
   </div><div class="sh-foot"><span class="sp"></span><button class="btn primary" id="clOpenWeek">Open this week's reports</button></div>`);

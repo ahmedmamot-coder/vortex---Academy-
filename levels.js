@@ -26,10 +26,49 @@ const PROGRAM_DEFAULTS = [
  {name:"Private Training",goal:"Focused coaching on each swimmer's personal goals",next:"Coach to advise the right level or squad",short:"PT",code:"PT",kicker:"Private",badge:"PT",group:"pt",nextId:0,
   skills:["Water confidence and body position","Freestyle technique","Backstroke technique","Breaststroke technique","Starts, turns and finishes"],
   assess:["Holds a streamlined body position","Freestyle with rhythmic breathing","Backstroke with a steady kick","Breaststroke with correct timing","Reached the goal set for this block"]}
+ ,{name:"Water Confidence",goal:"Feel safe and relaxed in the water",next:"Level 2 · Float & Glide",short:"Level 1",code:"A1",kicker:"Adult level",badge:"1",group:"adult",nextId:11,max:6,reg:"Level 1",
+  skills:["Safe entry, exit and standing up from a float","Breath control – bubbles and face in the water","Front float with support","Back float with support","Walking and moving across the shallow end"],
+  assess:["Puts face in and blows bubbles for 5 seconds","Front float 5 seconds and stands up safely","Back float 5 seconds and stands up safely","Moves confidently across the shallow end"]}
+ ,{name:"Float & Glide",goal:"Float, glide and kick on your own",next:"Level 3 · Stroke Foundations",short:"Level 2",code:"A2",kicker:"Adult level",badge:"2",group:"adult",nextId:12,max:6,reg:"Level 2",
+  skills:["Unassisted front and back float","Push and glide from the wall","Flutter kick with a board","Rolling from front to back","Treading water with support"],
+  assess:["Front and back float 10 seconds alone","Push and glide 5m","Kick 10m with a board","Roll front to back and recover"]}
+ ,{name:"Stroke Foundations",goal:"Build freestyle and backstroke",next:"Level 4 · Stroke Development",short:"Level 3",code:"A3",kicker:"Adult level",badge:"3",group:"adult",nextId:13,max:6,reg:"Level 3",
+  skills:["Freestyle arms with side breathing","Backstroke arms and kick","Streamline push-off","Treading water 30 seconds","Deep-water confidence"],
+  assess:["Swim 12.5m freestyle with breathing","Swim 12.5m backstroke","Tread water 30 seconds","Jump into deep water and return to the wall"]}
+ ,{name:"Stroke Development",goal:"Swim longer distances with good technique",next:"Level 5 · Fitness Swimmer",short:"Level 4",code:"A4",kicker:"Adult level",badge:"4",group:"adult",nextId:14,max:6,reg:"Level 4",
+  skills:["Bilateral breathing in freestyle","Breaststroke kick and timing","Open turns","Swimming 25m continuously","Pacing and breathing rhythm"],
+  assess:["Swim 25m freestyle with bilateral breathing","Swim 25m backstroke","Swim 12.5m breaststroke","Open turn and continue swimming"]}
+ ,{name:"Fitness Swimmer",goal:"Swim for fitness with confidence in all strokes",next:"Masters squad",short:"Level 5",code:"A5",kicker:"Adult level",badge:"5",group:"adult",nextId:null,max:8,reg:"Level 5",
+  skills:["Full breaststroke","Butterfly kick and arms introduction","Flip turn introduction","Interval sets with the pace clock","Swimming 100m continuously"],
+  assess:["Swim 100m continuously","Swim 25m breaststroke","Swim 25m in two different strokes with good technique","Complete a short interval set"]}
+ ,{name:"Private Training",goal:"One-to-one coaching on personal goals",next:"Coach to advise the right level",short:"PT",code:"PT",kicker:"Private",badge:"PT",group:"apt",nextId:null,pt:true,max:1,reg:"PT",
+  skills:["Water confidence and body position","Freestyle technique","Backstroke technique","Breaststroke technique","Endurance and pacing"],
+  assess:["Holds a streamlined body position","Freestyle with rhythmic breathing","Backstroke with a steady kick","Breaststroke with correct timing","Reached the goal set for this block"]}
+ ,{name:"Group Private",goal:"Small-group coaching on shared goals",next:"Coach to advise the right level",short:"GRP PT",code:"GPT",kicker:"Group private",badge:"G",group:"apt",nextId:null,max:4,reg:"GRP PT",
+  skills:["Water confidence and body position","Freestyle technique","Backstroke technique","Breaststroke technique","Endurance and pacing"],
+  assess:["Holds a streamlined body position","Freestyle with rhythmic breathing","Backstroke with a steady kick","Breaststroke with correct timing","Reached the goal set for this block"]}
+ ,{name:"Aqua Aerobics",goal:"Low-impact fitness, strength and mobility in the water",next:"Keep training – progress to higher intensity",short:"Aqua",code:"AQ",kicker:"Aqua aerobics",badge:"AQ",group:"aqua",nextId:null,max:0,reg:"AQUA",
+  skills:["Water walking and jogging","Cardio intervals (jumping jacks, cross-country)","Upper-body resistance with gloves or dumbbells","Core and balance work","Stretch and cool-down"],
+  assess:["Keeps up with the full class tempo","Uses correct posture in the water","Completes the cardio intervals","Good range of movement in stretches"]}
+ ,{name:"Aqua Private",goal:"One-to-one aqua fitness session",next:"Join the Aqua Aerobics class",short:"Aqua PT",code:"AQPT",kicker:"Aqua private",badge:"AQ",group:"aqua",nextId:null,pt:true,max:1,reg:"AQUA PT",
+  skills:["Water walking and jogging","Cardio intervals","Resistance work","Core and balance","Mobility and stretching"],
+  assess:["Keeps up with the session tempo","Correct posture in the water","Completes the cardio intervals","Good range of movement"]}
 ];
 let LEVELS = PROGRAM_DEFAULTS.map(p => ({ ...p }));
 function applyPrograms(o){ LEVELS = PROGRAM_DEFAULTS.map((p, i) => { const x = (o || {})[String(i + 1)] || {}; const m = { ...p };
   ["name","goal","next"].forEach(k => { if (typeof x[k] === "string" && x[k].trim()) m[k] = x[k].trim(); });
   ["skills","assess"].forEach(k => { if (Array.isArray(x[k]) && x[k].filter(Boolean).length) m[k] = x[k].filter(Boolean).slice(0, 5); }); return m; }); }
-const GROUPS = [{ id:"academy", name:"Academy levels" }, { id:"bb", name:"Baby Bubbles" }, { id:"pt", name:"Private training" }];
+const GROUPS = [{ id:"academy", name:"Academy levels" }, { id:"bb", name:"Baby Bubbles" }, { id:"pt", name:"Private training" },
+  { id:"aqua", name:"Aqua aerobics" }, { id:"adult", name:"Swim levels" }, { id:"apt", name:"Private training" }];
+/* Programs: each one has its own swimmers, levels and coaches */
+const PROGS = {
+  kids:   { id:"kids",   name:"Kids Academy",        short:"Kids",   sub:"Learn to swim · Baby Bubbles · Private training", groups:["academy","bb","pt"], color:"#1B22E4", sex:"" },
+  ladies: { id:"ladies", name:"Ladies Program",      short:"Ladies", sub:"Aqua aerobics · Swim levels · Private training",  groups:["aqua","adult","apt"], color:"#8F23D7", sex:"F" },
+  men:    { id:"men",    name:"Men's Adult Program", short:"Men",    sub:"Swim levels · Private & group training",         groups:["adult","apt"], color:"#067EEA", sex:"M" }
+};
+let CUR_PROG = "kids";
+const progLevels = (p) => { const g = PROGS[p || CUR_PROG].groups; return g.flatMap(id => LEVELS.map((L, i) => L.group === id ? i + 1 : 0).filter(Boolean)); };
+const progGroups = (p) => PROGS[p || CUR_PROG].groups.map(id => GROUPS.find(g => g.id === id));
+const lvMax = n => { const L = LEVELS[n - 1] || {}; return L.max === 0 ? Infinity : L.max || (n === 5 ? 8 : 4); };
+const lvPT = n => n === 9 || !!(LEVELS[n - 1] || {}).pt;
 const TRAITS=["Effort in session","Listening & focus","Confidence in water","Teamwork & respect"];

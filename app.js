@@ -29,19 +29,52 @@ const todayLabel = () => { const d = new Date(); return `${d.getDate()} ${MON[d.
 const S = {
   week: iso(sundayOf(new Date())), level: ls.get("vx_level", 1), view: "swimmers", coachSel: ls.get("vx_cf", "all"),
   me: { id:null, mgmt:false, admin:false, coachId:null, name:"", email:"", role:"" }, programs: {},
-  coaches: {}, staff: {}, kids: {}, reports: {}, notes: {}, names: {}, ready: false, blocked: false, term: null, day: ls.get("vx_day", "all"), q: "", allLv: ls.get("vx_all", false)
+  coaches: {}, staff: {}, kids: {}, reports: {}, notes: {}, names: {}, ready: false, blocked: false, term: null, allKids: {}, program: ls.get("vx_prog", "kids"), day: ls.get("vx_day", "all"), q: "", allLv: ls.get("vx_all", false)
 };
+if (!PROGS[S.program]) S.program = "kids"; CUR_PROG = S.program;
 const mgmt = () => S.me.mgmt;
 const myCoach = () => S.coaches[S.me.coachId] || {};
 const coachName = cid => (S.coaches[cid] && S.coaches[cid].displayName) || S.names[cid] || "Coach";
 const titleOf = id => { const st = S.staff[id] || (S.coaches[id] && S.staff[S.coaches[id].userId]); return st ? st.title : "Coach"; };
-const visibleCoachIds = () => Object.keys(S.coaches).filter(id => !S.coaches[id].linkedTo);
+const visibleCoachIds = () => { const has = new Set(Object.values(S.kids).map(k => k.cid));
+  return Object.keys(S.coaches).filter(id => !S.coaches[id].linkedTo && ((S.coaches[id].programs || ["kids"]).includes(S.program) || has.has(id))); };
+const allCoachIds = () => Object.keys(S.coaches).filter(id => !S.coaches[id].linkedTo);
+/* ---------- programs ---------- */
+const kidProg = k => k.program || "kids";
+function scopeKids(){ S.kids = {}; for (const key in S.allKids) if (kidProg(S.allKids[key]) === S.program) S.kids[key] = S.allKids[key]; }
+function setProgram(p){
+  if (!PROGS[p]) p = "kids"; S.program = p; CUR_PROG = p; ls.set("vx_prog", p); scopeKids();
+  const pl = progLevels(); if (!pl.includes(S.level)) { S.level = pl[0]; ls.set("vx_level", S.level); }
+  if (S.coachSel !== "all" && !visibleCoachIds().includes(S.coachSel)) { S.coachSel = "all"; ls.set("vx_cf", "all"); }
+  S.q = ""; document.documentElement.dataset.prog = p;
+  const nm = document.getElementById("progName"); if (nm) nm.textContent = PROGS[p].name;
+  document.title = `${PROGS[p].name} · Vortex Aquatics`;
+  render();
+}
+const myProgs = () => { if (S.me.mgmt) return Object.keys(PROGS);
+  const c = S.coaches[S.me.coachId] || {}, set = new Set(c.programs || []); Object.values(S.allKids).forEach(k => { if (k.cid === S.me.coachId && k.active !== false) set.add(kidProg(k)); });
+  const out = Object.keys(PROGS).filter(p => set.has(p)); return out.length ? out : ["kids"]; };
+function pickProgram(force){
+  const list = myProgs(); if (!list.includes(S.program)) S.program = list[0];
+  if (list.length < 2 && !force) { setProgram(list[0]); return; }
+  let el = document.getElementById("progPick"); if (!el) { el = document.createElement("div"); el.id = "progPick"; document.body.appendChild(el); }
+  const cnt = p => Object.values(S.allKids).filter(k => kidProg(k) === p && k.active !== false).length;
+  const icon = { kids: `<path d="M3 15c2 0 2-1.5 4.5-1.5S9.5 15 12 15s2.5-1.5 4.5-1.5S19 15 21 15M3 19c2 0 2-1.5 4.5-1.5S9.5 19 12 19s2.5-1.5 4.5-1.5S19 19 21 19"/><circle cx="12" cy="7" r="3"/>`,
+    ladies: `<circle cx="12" cy="6" r="2.6"/><path d="M12 9v5M7.5 11.5l4.5 2 4.5-2M3 18c2 0 2-1.5 4.5-1.5S9.5 18 12 18s2.5-1.5 4.5-1.5S19 18 21 18"/>`,
+    men: `<circle cx="16" cy="6" r="2.4"/><path d="M3 12l5-2 4 2 5-3M3 17c2 0 2-1.5 4.5-1.5S9.5 17 12 17s2.5-1.5 4.5-1.5S19 17 21 17"/>` };
+  el.innerHTML = `<div class="pp-in"><img src="${ASSETS.logoURL || ""}" alt=""><small>VORTEX AQUATICS</small><h1>Choose a program</h1>
+    <p>Each program has its own swimmers, coaches, decksheets and register.</p>
+    <div class="pp-list">${list.map(p => { const P = PROGS[p]; return `<button class="pp-card" data-prog="${p}" style="--pc:${P.color}" ${p === S.program ? 'aria-current="true"' : ""}>
+      <span class="pp-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round">${icon[p]}</svg></span>
+      <span class="pp-tx"><b>${esc(P.name)}</b><span>${esc(P.sub)}</span></span><span class="pp-n"><b>${cnt(p)}</b><span>active</span></span></button>`; }).join("")}</div></div>`;
+  el.querySelectorAll("[data-prog]").forEach(b => b.onclick = () => { el.remove(); setProgram(b.dataset.prog); window.scrollTo(0, 0); });
+}
 const norm = s => String(s||"").toLowerCase().replace(/^\s*coach\s+/,"").replace(/\s+/g," ").trim();
 /* ---------- Supabase data layer ---------- */
 const sb = window.supabase.createClient(CFG.url, CFG.key, { auth: { persistSession: true, autoRefreshToken: true } });
 const toKid = r => ({ id: r.id, cid: r.coach_id, name: r.name, dob: r.dob || "", age: r.age || "", level: r.level, sessions: r.sessions || [],
-  group: r.group_note || "", ptType: r.pt_type || "", active: r.active, last: r.last || null, term: r.term || "", startDate: r.start_date || "", paidClasses: r.paid_classes ?? null, paid: r.paid ?? null });
-const KIDMAP = { name:"name", dob:"dob", age:"age", level:"level", sessions:"sessions", group:"group_note", ptType:"pt_type", active:"active", last:"last", term:"term", startDate:"start_date", paidClasses:"paid_classes" };
+  group: r.group_note || "", ptType: r.pt_type || "", active: r.active, last: r.last || null, term: r.term || "", startDate: r.start_date || "", paidClasses: r.paid_classes ?? null, paid: r.paid ?? null, program: r.program || "kids", extra: r.extra || null });
+const KIDMAP = { name:"name", dob:"dob", age:"age", level:"level", sessions:"sessions", group:"group_note", ptType:"pt_type", active:"active", last:"last", term:"term", startDate:"start_date", paidClasses:"paid_classes", program:"program" };
 const kidOut = d => { const o = {}; for (const k in KIDMAP) if (k in d) o[KIDMAP[k]] = ((k === "dob" || k === "startDate") && !d[k]) ? null : d[k]; return o; };
 const toRep = r => ({ ...(r.data || {}), week: r.week, kidId: r.swimmer_id, level: r.level, done: r.done,
   reviewedAt: r.reviewed_at ? Date.parse(r.reviewed_at) : null, reviewedBy: r.reviewed_by || null });
@@ -57,17 +90,17 @@ function fail(e){ console.error(e); toast(e && e.message && /row-level|permissio
 async function write(path, data, partial){
   const p = path.split("/");
   if (p[0] === "coaches" && p.length === 2) {
-    const row = { id: p[1] }; if (data.displayName) row.display_name = data.displayName;
+    const row = { id: p[1] }; if (data.displayName) row.display_name = data.displayName; if (data.programs) row.programs = data.programs;
     const { error } = partial ? await sb.from("acad_coaches").update(row).eq("id", p[1]) : await sb.from("acad_coaches").upsert({ display_name: "Coach", ...row });
-    if (error) fail(error); S.coaches[p[1]] = { ...(S.coaches[p[1]] || {}), ...(data.displayName ? { displayName: data.displayName } : {}) }; return render();
+    if (error) fail(error); S.coaches[p[1]] = { ...(S.coaches[p[1]] || {}), ...(data.displayName ? { displayName: data.displayName } : {}), ...(data.programs ? { programs: data.programs } : {}) }; return render();
   }
   if (p[0] === "coaches" && p[2] === "kids") {
     const cid = p[1], id = p[3], out = kidOut(data);
     const { data: row, error } = partial ? await sb.from("acad_swimmers").update({ ...out, updated_at: new Date().toISOString() }).eq("id", id).select().single()
-                                         : await sb.from("acad_swimmers").upsert({ id, coach_id: cid, ...out, updated_at: new Date().toISOString() }).select().single();
+                                         : await sb.from("acad_swimmers").upsert({ id, coach_id: cid, program: S.program, ...out, updated_at: new Date().toISOString() }).select().single();
     if (error) fail(error);
-    for (const k of Object.keys(S.kids)) if (k.endsWith("/" + id)) delete S.kids[k];
-    const kd = toKid(row); S.kids[`${kd.cid}/${kd.id}`] = kd; return render();
+    for (const k of Object.keys(S.allKids)) if (k.endsWith("/" + id)) delete S.allKids[k];
+    const kd = toKid(row); S.allKids[`${kd.cid}/${kd.id}`] = kd; scopeKids(); return render();
   }
   if (p[0] === "coaches" && p[2] === "reports") {
     const cid = p[1], [week, kid] = p[3].split("__"); const { reviewedAt, reviewedBy, done, level, week: _w, kidId: _k, ...rest } = data;
@@ -93,7 +126,7 @@ const patch = (path, data) => write(path, data, true).catch(() => {});
 async function moveKid(id, from, to){
   const { data: row, error } = await sb.from("acad_swimmers").update({ coach_id: to, active: true, updated_at: new Date().toISOString() }).eq("id", id).select().single();
   if (error) return fail(error);
-  delete S.kids[`${from}/${id}`]; const kd = toKid(row); S.kids[`${kd.cid}/${kd.id}`] = kd; render();
+  delete S.allKids[`${from}/${id}`]; const kd = toKid(row); S.allKids[`${kd.cid}/${kd.id}`] = kd; scopeKids(); render();
 }
 async function adminCall(action, payload){
   const { data: sess } = await sb.auth.getSession();
@@ -122,14 +155,14 @@ const reportOf = kid => S.reports[`${kid.cid}/${S.week}__${kid.id}`] || Object.e
 /* ---------- loading ---------- */
 async function loadBase(){
   const [c, k, st, se] = await Promise.all([
-    sb.from("acad_coaches").select("*"), sb.from("acad_swimmers").select("*").limit(5000),
+    sb.from("acad_coaches").select("*"), sb.from("acad_swimmers").select("*").limit(10000),
     sb.from("acad_staff").select("*"), sb.from("acad_settings").select("*") ]);
   const err = c.error || k.error || st.error || se.error; if (err) { setStatus(err); throw err; }
-  S.coaches = {}; c.data.forEach(r => { S.coaches[r.id] = { displayName: r.display_name, userId: r.user_id, placeholder: !r.user_id, partTime: !!r.part_time, classMinutes: r.class_minutes || 40 }; });
-  S.kids = {}; k.data.forEach(r => { const kd = toKid(r); S.kids[`${kd.cid}/${kd.id}`] = kd; });
+  S.coaches = {}; c.data.forEach(r => { S.coaches[r.id] = { displayName: r.display_name, userId: r.user_id, placeholder: !r.user_id, partTime: !!r.part_time, classMinutes: r.class_minutes || 40, programs: r.programs || ["kids"] }; });
+  S.allKids = {}; k.data.forEach(r => { const kd = toKid(r); S.allKids[`${kd.cid}/${kd.id}`] = kd; }); scopeKids();
   S.staff = {}; st.data.forEach(r => { S.staff[r.user_id] = { title: r.role[0].toUpperCase() + r.role.slice(1), name: r.display_name, email: r.email, active: r.active, managed: r.managed }; });
   se.data.forEach(r => { if (r.key === "term") S.term = r.value; if (r.key === "programs") { S.programs = r.value; applyPrograms(r.value); } });
-  if (S.me.mgmt) { const ph = await sb.from("acad_contacts").select("swimmer_id,phones").limit(5000); S.phones = {}; (ph.data || []).forEach(r => { S.phones[r.swimmer_id] = (r.phones || []).map(p => String(p).replace(/\D/g, "")); }); }
+  if (S.me.mgmt) { const ph = await sb.from("acad_contacts").select("swimmer_id,phones").limit(10000); S.phones = {}; (ph.data || []).forEach(r => { S.phones[r.swimmer_id] = (r.phones || []).map(p => String(p).replace(/\D/g, "")); }); }
   S.ready = true;
 }
 async function loadWeek(){
@@ -174,7 +207,7 @@ function renderTop(){
   if (mgmt()) {
     document.querySelectorAll("#mgBar [data-view]").forEach(b => b.setAttribute("aria-pressed", b.dataset.view === S.view));
     const ids = visibleCoachIds().sort((a,b) => coachName(a).localeCompare(coachName(b)));
-    if (S.coachSel !== "all" && (!S.coaches[S.coachSel] || S.coaches[S.coachSel].linkedTo)) S.coachSel = "all";
+    if (S.coachSel !== "all" && !ids.includes(S.coachSel)) S.coachSel = "all";
     $("#coachSel").innerHTML = `<option value="all">All coaches (${ids.length})</option>` + ids.map(id => `<option value="${esc(id)}" ${S.coachSel===id?"selected":""}>${esc(coachName(id))}${id===S.me.id?" (you)":""}</option>`).join("");
   }
   $("#vSwimmers").classList.toggle("hide", S.view !== "swimmers");
@@ -186,11 +219,12 @@ function renderTop(){
   $("#vPlans")?.classList.toggle("hide", S.view !== "plans");
 }
 function renderLevels(){
-  const grp = LEVELS[S.level-1].group;
+  if (!progLevels().includes(S.level)) S.level = progLevels()[0];
+  const grp = LEVELS[S.level-1].group, PG = progGroups();
   const gcount = g => LEVELS.reduce((a,L,i) => a + (L.group === g ? kidsInLevel(i+1, true).length : 0), 0);
-  $("#groups").innerHTML = GROUPS.map(g => `<button data-grp="${g.id}" aria-pressed="${!S.allLv && g.id===grp && S.view==="swimmers"}">${g.name}<span>${gcount(g.id)}</span></button>`).join("");
+  $("#groups").innerHTML = PG.map(g => `<button data-grp="${g.id}" aria-pressed="${!S.allLv && g.id===grp && S.view==="swimmers"}">${g.name}<span>${gcount(g.id)}</span></button>`).join("");
   const allK = allLevelKids(true), allD = allK.filter(isDone).length;
-  const allTile = `<button class="lv" data-l="all" aria-pressed="${!!S.allLv && S.view==="swimmers"}"><span style="position:absolute;left:8px;top:50%;transform:translateY(-50%);width:58px;height:58px;border-radius:14px;overflow:hidden;display:grid;grid-template-columns:1fr 1fr;gap:2px;background:#fff">${[1,2,3,5].map(n => `<img alt="" src="data:image/jpeg;base64,${ASSETS["thumb"+n]}" style="position:static;transform:none;width:100%;height:100%;border-radius:0;object-fit:cover">`).join("")}</span>
+  const allTile = `<button class="lv" data-l="all" aria-pressed="${!!S.allLv && S.view==="swimmers"}"><span style="position:absolute;left:8px;top:50%;transform:translateY(-50%);width:58px;height:58px;border-radius:14px;overflow:hidden;display:grid;grid-template-columns:1fr 1fr;gap:2px;background:#fff">${(S.program === "kids" ? [1,2,3,5] : progLevels().slice(0, 4)).map(n => `<img alt="" src="data:image/jpeg;base64,${ASSETS["thumb"+n]}" style="position:static;transform:none;width:100%;height:100%;border-radius:0;object-fit:cover">`).join("")}</span>
       <span class="n">Everyone</span><span class="nm">All levels</span><span class="ct">${allK.length ? `${allD} of ${allK.length} done` : "No swimmers yet"}</span></button>`;
   $("#levels").innerHTML = allTile + LEVELS.map((L,i) => {
     if (L.group !== grp) return "";
@@ -241,19 +275,19 @@ function renderOverview(){
   const doneN = all.filter(isDone).length, revN = all.filter(k => statusOf(k) === "rev").length, todoN = all.filter(k => statusOf(k) === "todo").length;
   const cell = (d,t) => `<span class="c ${!t ? "z" : d===t ? "f" : "p"}">${t ? `${d}/${t}` : "–"}</span>`;
   $("#vOverview").innerHTML = `
-    <div class="bar"><div><h1>Coaches overview</h1><div class="sub">${weekLabel(S.week)} · reports done out of swimmers, per level</div></div></div>
+    <div class="bar"><div><h1>Coaches overview</h1><div class="sub">${esc(PROGS[S.program].name)} · ${weekLabel(S.week)} · reports done out of swimmers, per level</div></div></div>
     <div class="kpis">
       <div class="kpi"><b>${ids.length}</b><span>Coaches</span></div>
       <div class="kpi"><b>${all.length}</b><span>Swimmers</span></div>
       <div class="kpi"><b>${all.length ? Math.round(doneN/all.length*100) : 0}%</b><span>Reports done (${doneN})</span></div>
       <div class="kpi"><b>${revN}</b><span>Reviewed · ${todoN} not started</span></div>
     </div>
-    <div class="ov"><table><thead><tr><th>Coach</th>${LEVELS.map(L=>`<th>${L.code}</th>`).join("")}<th>Total</th><th>Reviewed</th></tr></thead><tbody>
+    <div class="ov"><table><thead><tr><th>Coach</th>${progLevels().map(n=>`<th>${LEVELS[n-1].code}</th>`).join("")}<th>Total</th><th>Reviewed</th></tr></thead><tbody>
     ${ids.length ? ids.map(id => { const ks = all.filter(k => k.cid === id);
-      const per = LEVELS.map((_,i) => { const l = ks.filter(k => (reportOf(k)?.level ?? k.level) === i+1); return cell(l.filter(isDone).length, l.length); });
+      const per = progLevels().map(n => { const l = ks.filter(k => (reportOf(k)?.level ?? k.level) === n); return cell(l.filter(isDone).length, l.length); });
       return `<tr class="click" data-c="${esc(id)}"><td><b>${esc(coachName(id))}</b><br><span class="note">${esc(titleOf(id))}</span></td>${per.map(p=>`<td>${p}</td>`).join("")}
         <td>${cell(ks.filter(isDone).length, ks.length)}</td><td>${ks.filter(k => statusOf(k)==="rev").length}</td></tr>`; }).join("")
-      : `<tr><td colspan="${LEVELS.length+3}" class="empty">No coaches yet. Add them in Admin settings → People & logins.</td></tr>`}
+      : `<tr><td colspan="${progLevels().length+3}" class="empty">No coaches yet. Add them in Admin settings → People & logins.</td></tr>`}
     </tbody></table></div>`;
 }
 let rq = 0;
@@ -279,7 +313,7 @@ function addKids(){
     <label class="f">Swimmer names – one per line, add age after a comma if you like
       <textarea class="inp" id="names" rows="8" autofocus placeholder="Layla Hassan, 7&#10;Omar Khalid, 6&#10;Sara Ahmed"></textarea></label>
     <div class="grid4" style="margin-top:10px">
-      <label class="f">Level<select class="inp" id="lvl">${LEVELS.map((L,i)=>`<option value="${i+1}" ${S.level===i+1?"selected":""}>${esc(L.short)} · ${esc(L.name)}</option>`).join("")}</select></label>
+      <label class="f">Level<select class="inp" id="lvl">${progLevels().map(n=>`<option value="${n}" ${S.level===n?"selected":""}>${esc(LEVELS[n-1].short)} · ${esc(LEVELS[n-1].name)}</option>`).join("")}</select></label>
       ${mgmt() ? `<label class="f">Coach<select class="inp" id="kc">${ids.map(id=>`<option value="${esc(id)}" ${id===def?"selected":""}>${esc(coachName(id))}</option>`).join("")}</select></label>` : ""}
     </div>
     <label class="f" style="margin-top:10px">Group / training days<input class="inp" id="kg" placeholder="e.g. Sun & Tue 4pm"></label>
@@ -442,9 +476,9 @@ async function adminSheet(tab){
     <div class="box"><h3>2 · Upload your sheet</h3>
       <input type="file" id="xfile" accept=".xlsx,.xls,.csv" class="inp">
       <div id="prev"></div></div>`;
-  if (tab === "programs") { const pi = S.progEdit || 6, P0 = LEVELS[pi-1];
+  if (tab === "programs") { if (!progLevels().includes(S.progEdit)) S.progEdit = progLevels()[0]; const pi = S.progEdit, P0 = LEVELS[pi-1];
     body = `<div class="box"><h3>Edit a level or programme</h3>
-      <select class="inp" id="pgSel">${LEVELS.map((L,i) => `<option value="${i+1}" ${i+1===pi?"selected":""}>${esc(L.short)} · ${esc(L.name)}</option>`).join("")}</select>
+      <p class="note" style="margin:0 0 8px">${esc(PROGS[S.program].name)} levels – switch program from the top bar to edit the others.</p><select class="inp" id="pgSel">${progLevels().map(n => `<option value="${n}" ${n===pi?"selected":""}>${esc(LEVELS[n-1].short)} · ${esc(LEVELS[n-1].name)}</option>`).join("")}</select>
       <label class="f" style="margin-top:10px">Name<input class="inp" id="pgName" value="${esc(P0.name)}"></label>
       <label class="f" style="margin-top:10px">Goal<input class="inp" id="pgGoal" value="${esc(P0.goal)}"></label>
       <label class="f" style="margin-top:10px">Next step (shown on the report)<input class="inp" id="pgNext" value="${esc(P0.next || "")}"></label>
@@ -495,14 +529,16 @@ async function adminSheet(tab){
         catch (er) { toast(er.message); b.disabled = false; b.textContent = "Create login"; } };
       $("#phAdd").onclick = async () => { const n = $("#phName").value.trim(); if (!n) return $("#phName").focus();
         if (matchCoach(n)) return toast(`${n} is already in the list`);
+        const other = allCoachIds().find(id => norm(S.coaches[id].displayName) === norm(n) || norm(S.coaches[id].displayName) === norm("coach " + n));
+        if (other) { await patch(P.coach(other), { programs: [...new Set([...(S.coaches[other].programs || ["kids"]), S.program])] }); toast(`${coachName(other)} added to ${PROGS[S.program].name}`); return reopen(); }
         const id = "p-" + norm(n).replace(/[^a-z0-9]+/g, "-") + "-" + Math.random().toString(36).slice(2,5);
-        await put(P.coach(id), { displayName: /^coach\s/i.test(n) ? n : "Coach " + n }); toast(`${n} added`); reopen(); };
+        await put(P.coach(id), { displayName: /^coach\s/i.test(n) ? n : "Coach " + n, programs: [S.program] }); toast(`${n} added`); reopen(); };
     }
   }
 
   if (tab === "programs") {
     $("#pgSel").onchange = e => { S.progEdit = +e.target.value; adminSheet("programs"); };
-    const pi = S.progEdit || 6, lines = id => $(id).value.split("\n").map(x => x.trim()).filter(Boolean);
+    const pi = S.progEdit, lines = id => $(id).value.split("\n").map(x => x.trim()).filter(Boolean);
     $("#pgSave").onclick = async () => { const sk = lines("#pgSkills"), as = lines("#pgAssess");
       if (!sk.length || !as.length) return toast("Add at least one skill and one assessment item");
       if (sk.length > 5 || as.length > 5) return toast("Keep it to 5 skills and 5 assessment items so the report fits one page");
@@ -769,10 +805,10 @@ $("#vOverview").addEventListener("click", e => { const tr = e.target.closest("tr
 $("#mgBar").addEventListener("click", e => { const b = e.target.closest("[data-view]"); if (!b) return; S.view = b.dataset.view; render(); });
 $("#coachSel").onchange = e => { S.coachSel = e.target.value; ls.set("vx_cf", S.coachSel); render(); };
 $("#wPrev").onclick = () => changeWeek(-1); $("#wNext").onclick = () => changeWeek(1);
-$("#meBtn").onclick = askName; $("#teamBtn").onclick = () => adminSheet("people");
+$("#meBtn").onclick = askName; $("#progBtn") && ($("#progBtn").onclick = () => pickProgram(true)); $("#teamBtn").onclick = () => adminSheet("people");
 $("#addBtn").onclick = addKids; $("#deckBtn") && ($("#deckBtn").onclick = () => { S.view = "deck"; render(); window.scrollTo(0, 0); }); $("#calBtn") && ($("#calBtn").onclick = () => { S.view = "calendar"; render(); window.scrollTo(0, 0); }); $("#notesBtn").onclick = groupNotes; $("#attBtn").onclick = attendance; $("#dlAllBtn").onclick = downloadAll;
 
-window.VX = { S, sb, esc, openSheet, closeSheet, head, toast, mgmt, coachName, ageOf, fmtTime, timeVal, fromIso, iso, sundayOf, weekLabel, MON, DAYS, norm, visibleCoachIds, toRep, downloadPdfs, deliver, render, groupOf, loadBase, reportOf,
+window.VX = { setProgram, pickProgram, allCoachIds, myProgs, S, sb, esc, openSheet, closeSheet, head, toast, mgmt, coachName, ageOf, fmtTime, timeVal, fromIso, iso, sundayOf, weekLabel, MON, DAYS, norm, visibleCoachIds, toRep, downloadPdfs, deliver, render, groupOf, loadBase, reportOf,
   saveAtt: async (kid, i, v) => { const r = getReport(kid); r.abs = Array.isArray(r.abs) ? r.abs : [0,0,0,0,0,0,0]; r.att[i] = v === "P" || v === true ? 1 : 0; r.abs[i] = v === "A" ? 1 : 0; if (!r.attTotal && sessCount(kid)) r.attTotal = String(sessCount(kid)); r.updatedAt = Date.now(); r.updatedBy = S.me.id; await put(P.report(kid.cid, kid.id), r); },
   goWeek: ws => { S.week = iso(sundayOf(fromIso(ws))); S.reports = {}; S.notes = {}; S.view = "swimmers"; render(); loadWeek(); },
   goDay: ds => { const d = fromIso(ds); S.week = iso(sundayOf(d)); S.reports = {}; S.notes = {}; S.day = DAYS[d.getDay()]; ls.set("vx_day", S.day); S.view = "swimmers"; render(); loadWeek(); window.scrollTo(0, 0); } };
@@ -848,7 +884,7 @@ function showLogin(msg, signedIn){
   if (!S.me.mgmt) S.view = "swimmers";
   try { await loadBase(); } catch { return; }
   S.me.coachId = Object.keys(S.coaches).find(c => S.coaches[c].userId === S.me.id) || null;
-  setStatus(); render(); loadWeek();
+  setProgram(S.program); pickProgram(); setStatus(); render(); loadWeek();
   setInterval(() => { if (!document.hidden && !$("#layer").innerHTML) { loadBase().then(render).catch(() => {}); loadWeek(); } }, 60000);
   document.addEventListener("visibilitychange", () => { if (!document.hidden && !$("#layer").innerHTML) loadWeek(); });
 })();
