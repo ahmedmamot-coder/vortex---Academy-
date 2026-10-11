@@ -245,20 +245,27 @@ function rowHtml(k, i, sub){
       <span class="who"><b>${esc(k.name)}</b><span>${sub || "&nbsp;"}</span></span><span class="pill ${st}">${lab[st]}</span></button>`;
 }
 const phoneHit = k => { const d = S.q.replace(/\D/g, ""); return d.length >= 3 && ((S.phones && S.phones[k.id]) || []).some(p => p.includes(d)); };
+/* search: every word typed must appear in the name (any order), or digits match a mobile */
+const nameHit = k => { const w = norm(S.q).split(" ").filter(Boolean), n = norm(k.name); return w.length > 0 && w.every(x => n.includes(x)); };
+const searchHit = k => k.active !== false && (nameHit(k) || phoneHit(k));
 function renderList(){
   if (!$("#q") || document.activeElement !== $("#q")) renderFilters();
   const L = LEVELS[S.level-1], showCoach = mgmt() && S.coachSel === "all";
   const searching = S.q.trim().length > 0;
-  const ks = searching ? Object.values(S.kids).filter(k => inScope(k) && (norm(k.name).includes(norm(S.q)) || phoneHit(k))).sort((a,b) => a.name.localeCompare(b.name)) : S.allLv ? allLevelKids() : kidsInLevel(S.level);
+  const ks = searching ? Object.values(S.kids).filter(searchHit).sort((a,b) => a.name.localeCompare(b.name)) : S.allLv ? allLevelKids() : kidsInLevel(S.level);
+  const elsewhere = searching ? Object.entries(S.allKids).filter(([, k]) => kidProg(k) !== S.program && searchHit(k)).sort((a,b) => a[1].name.localeCompare(b[1].name)) : [];
   const all = S.allLv ? allLevelKids(true) : kidsInLevel(S.level, true), done = all.filter(isDone).length;
   $("#lvTitle").textContent = searching ? `Search: ${S.q}` : S.allLv ? "All levels" : `${L.short} · ${L.name}`;
-  $("#lvSub").textContent = searching ? `${ks.length} swimmer${ks.length===1?"":"s"} found in all levels` : all.length ? `${done} of ${all.length} reports done this week` : L.goal;
+  $("#lvSub").textContent = searching ? `${ks.length} swimmer${ks.length===1?"":"s"} found in ${esc(PROGS[S.program].name)} (all levels and coaches)${elsewhere.length ? ` · ${elsewhere.length} in other programs` : ""}` : all.length ? `${done} of ${all.length} reports done this week` : L.goal;
   $("#progBar").style.width = !searching && all.length ? (done/all.length*100)+"%" : "0";
   if (!S.ready) { $("#list").innerHTML = `<div class="empty">Loading swimmers…</div>`; return; }
+  const otherHtml = elsewhere.length ? `<div class="slot"><b>Found in other programs</b><span>Tap to switch program and open</span></div>` +
+    elsewhere.map(([key, k], i) => rowHtml(k, i, [`<b style="color:${PROGS[kidProg(k)].color}">${esc(PROGS[kidProg(k)].name)}</b>`, esc(coachName(k.cid)), esc(LEVELS[k.level-1].short), esc(groupOf(k))].filter(Boolean).join(" · ")).replace('class="row"', `class="row" data-prog="${kidProg(k)}"`)).join("") : "";
+  if (!ks.length && otherHtml) { $("#list").innerHTML = `<div class="empty" style="padding:14px"><b>Not in ${esc(PROGS[S.program].name)}</b></div>` + otherHtml; return; }
   if (!ks.length) { $("#list").innerHTML = `<div class="empty"><b>${searching ? "No swimmer by that name" : S.day !== "all" ? `No ${S.allLv ? "" : L.short + " "}swimmers on ${S.day}` : "No swimmers in this level yet"}</b>${searching || S.day !== "all" ? "" : mgmt() && S.coachSel==="all" ? "Import the term sheet in Admin settings, or add swimmers." : "Add your group once – they'll be here every week."}</div>`; return; }
-  const base = k => [k.ptType && `${esc(k.ptType)} PT`, showCoach && esc(coachName(k.cid)), (searching || S.allLv) && esc(LEVELS[k.level-1].short), ageOf(k) && `Age ${esc(ageOf(k))}`].filter(Boolean);
+  const base = k => [k.ptType && `${esc(k.ptType)} PT`, (showCoach || (searching && mgmt())) && esc(coachName(k.cid)), (searching || S.allLv) && esc(LEVELS[k.level-1].short), ageOf(k) && `Age ${esc(ageOf(k))}`].filter(Boolean);
   if (S.day === "all" || searching) {
-    $("#list").innerHTML = ks.map((k,i) => rowHtml(k, i, [...base(k), esc(groupOf(k))].filter(Boolean).join(" · "))).join("");
+    $("#list").innerHTML = ks.map((k,i) => rowHtml(k, i, [...base(k), esc(groupOf(k))].filter(Boolean).join(" · "))).join("") + otherHtml;
     return;
   }
   const slots = {};
@@ -800,7 +807,7 @@ $("#groups").addEventListener("click", e => { const b = e.target.closest("[data-
 $("#filters").addEventListener("click", e => { const b = e.target.closest("[data-day-f]"); if (!b) return; S.day = b.dataset.dayF; ls.set("vx_day", S.day); render(); });
 $("#filters").addEventListener("input", e => { if (e.target.id !== "q") return; S.q = e.target.value; render(); });
 $("#levels").addEventListener("click", e => { const b = e.target.closest(".lv"); if (!b) return; if (b.dataset.l === "all") S.allLv = true; else { S.allLv = false; S.level = +b.dataset.l; } ls.set("vx_all", S.allLv); S.view = "swimmers"; ls.set("vx_level", S.level); render(); });
-$("#list").addEventListener("click", e => { const b = e.target.closest(".row"); if (b) openKid(b.dataset.k); });
+$("#list").addEventListener("click", e => { const b = e.target.closest(".row"); if (!b) return; if (b.dataset.prog && b.dataset.prog !== S.program) { const q = S.q; setProgram(b.dataset.prog); S.q = q; render(); } openKid(b.dataset.k); });
 $("#vOverview").addEventListener("click", e => { const tr = e.target.closest("tr[data-c]"); if (!tr) return; S.coachSel = tr.dataset.c; ls.set("vx_cf", S.coachSel); S.view = "swimmers"; render(); });
 $("#mgBar").addEventListener("click", e => { const b = e.target.closest("[data-view]"); if (!b) return; S.view = b.dataset.view; render(); });
 $("#coachSel").onchange = e => { S.coachSel = e.target.value; ls.set("vx_cf", S.coachSel); render(); };
