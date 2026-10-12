@@ -206,19 +206,49 @@ async function plan(items){
 }
 
 async function apply(p, markLeft, btn){
-  const V = X(); btn.disabled = true; btn.textContent = "Saving…"; const prog = (a, b) => { btn.textContent = `Saving ${a} of ${b}…`; };
+  const V = X(); btn.disabled = true; btn.textContent = "Saving…";
+  const res = btn.parentElement.querySelector("#xsResult") || btn.insertAdjacentElement("afterend", Object.assign(document.createElement("div"), { id: "xsResult" }));
   try {
-    const recs = p.add.concat(p.change).map(x => ({ ...x.rec, updated_at: new Date().toISOString() }));
-    for (let i = 0; i < recs.length; i += 100) { prog(i, recs.length); const { error } = await V.sb.from("acad_swimmers").upsert(recs.slice(i, i + 100)); if (error) throw error; }
-    const cons = p.add.concat(p.change).map(x => ({ swimmer_id: x.id, ...x.con }));
-    for (let i = 0; i < cons.length; i += 100) { const { error } = await V.sb.from("acad_contacts").upsert(cons.slice(i, i + 100)); if (error) throw error; }
+    const swimmers = p.add.concat(p.change).map(x => x.rec);
+    const contacts = p.add.concat(p.change).map(x => ({ swimmer_id: x.id, ...x.con }));
+    const left = markLeft ? p.missing.map(r => r.id) : [];
+    // one all-or-nothing save on the server: keeps a copy of the old data, logs who uploaded, and can be undone
+    const { data: out, error } = await V.sb.rpc("acad_apply_import", { p: { program: PG(), file: p.file || "", swimmers, contacts, left } });
+    if (error) throw error;
+    if (out.saved_swimmers !== swimmers.length || out.saved_contacts !== contacts.length) throw new Error(`check failed – ${out.saved_swimmers} of ${swimmers.length} swimmers found after saving`);
     const pgm = PG(), tag = [...(p.coaches || [])].filter(id => V.S.coaches[id] && !(V.S.coaches[id].programs || ["kids"]).includes(pgm));
-    for (const id of tag) { await V.sb.from("acad_coaches").update({ programs: [...new Set([...(V.S.coaches[id].programs || ["kids"]), pgm])] }).eq("id", id); }
-    if (markLeft && p.missing.length) { const { error } = await V.sb.from("acad_swimmers").update({ active: false }).in("id", p.missing.map(r => r.id)); if (error) throw error; }
-    try { await V.sb.from("acad_settings").upsert({ key: "last_import", value: { at: new Date().toISOString(), by: V.S.me.name || "", file: p.file || "", program: PG(), added: p.add.length, updated: p.change.length, left: markLeft ? p.missing.length : 0 } }); } catch {}
+    for (const id of tag) { try { await V.sb.from("acad_coaches").update({ programs: [...new Set([...(V.S.coaches[id].programs || ["kids"]), pgm])] }).eq("id", id); } catch {} }
     await V.loadBase(); V.render();
-    btn.textContent = "Done ✓"; V.toast(`Excel synced – ${p.add.length} added, ${p.change.length} updated${markLeft && p.missing.length ? `, ${p.missing.length} marked as left` : ""}`);
-  } catch (e) { btn.disabled = false; btn.textContent = "Apply changes"; V.toast("Not saved – " + (e.message || "check your connection")); }
+    btn.textContent = "Saved ✓";
+    res.innerHTML = `<p class="note" style="color:#06704f;font-weight:600;margin-top:10px">Saved and checked in the database: ${out.added} added, ${out.updated} updated${out.left ? `, ${out.left} marked as left` : ""}. Upload #${out.log} – it can be undone from Upload history.</p>`;
+    V.toast(`Excel saved – ${out.added} added, ${out.updated} updated${out.left ? `, ${out.left} marked as left` : ""}`);
+    const h = document.getElementById("xsHist"); if (h) loadHistory(h);
+  } catch (e) {
+    btn.disabled = false; btn.textContent = "Apply changes";
+    res.innerHTML = `<p class="note" style="color:#b4231f;font-weight:600;margin-top:10px">Nothing was saved – ${V.esc(e.message || "check your connection")}. The app's data is unchanged; try again.</p>`;
+    V.toast("Not saved – nothing was changed");
+  }
+}
+
+async function loadHistory(el){
+  const V = X(), esc = V.esc;
+  const { data, error } = await V.sb.from("acad_import_log").select("id,at,by_name,file,added,updated,left_count,undone_at").eq("program", PG()).order("id", { ascending: false }).limit(12);
+  if (error) { el.innerHTML = `<p class="note">Couldn't load the upload history.</p>`; return; }
+  if (!data.length) { el.innerHTML = `<p class="note">No uploads yet for this program. Every upload from now on is listed here and can be undone.</p>`; return; }
+  const when = t => { const d = new Date(t); return `${d.getDate()} ${V.MON[d.getMonth()]}, ${d.getHours() % 12 || 12}:${String(d.getMinutes()).padStart(2, "0")} ${d.getHours() < 12 ? "am" : "pm"}`; };
+  el.innerHTML = data.map((r, i) => `<div class="person"><div class="who"><b>#${r.id} · ${esc(when(r.at))} · ${esc(r.by_name || "")}</b>
+      <span>${esc(r.file || "Excel file")} – ${r.added} added, ${r.updated} updated${r.left_count ? `, ${r.left_count} marked as left` : ""}${r.undone_at ? ` · <b style="color:#b4231f">undone ${esc(when(r.undone_at))}</b>` : ""}</span></div>
+      ${r.undone_at ? "" : `<button class="btn" data-undo="${r.id}" ${i > 0 && !data[i - 1].undone_at ? 'title="Undo the newer uploads first"' : ""}>Undo</button>`}</div>`).join("");
+  el.querySelectorAll("[data-undo]").forEach(b => b.onclick = async () => {
+    const id = +b.dataset.undo, newer = data.find(r => r.id > id && !r.undone_at);
+    if (newer) return V.toast(`Undo upload #${newer.id} first – uploads are undone newest first`);
+    if (b.dataset.sure !== "1") { b.dataset.sure = "1"; b.textContent = "Press again to undo"; b.classList.add("primary"); return; }
+    b.disabled = true; b.textContent = "Undoing…";
+    const { data: out, error } = await V.sb.rpc("acad_undo_import", { lid: id });
+    if (error) { b.disabled = false; b.textContent = "Undo"; return V.toast("Not undone – " + error.message); }
+    V.toast(`Upload #${id} undone – ${out.restored} swimmers restored, ${out.switched_off} new swimmers switched off`);
+    await V.loadBase(); V.render(); loadHistory(el);
+  });
 }
 
 function mount(el){
@@ -233,8 +263,10 @@ function mount(el){
       <p class="note">${last ? `Last backup from this device: ${ago === 0 ? "today" : ago === 1 ? "yesterday" : ago + " days ago"}.` : "No backup downloaded on this device yet."}${ago != null && ago >= 7 ? ` <b style="color:#b4231f">Time for a new backup.</b>` : ""}</p></div>
     <div class="box"><h3>2 · Bring your Excel changes into the app <small id="xsLast"></small></h3>
       <p class="note" style="margin:0 0 10px">Upload the register after editing it in Excel – new rows are added, changed rows are updated (matched by the VX ID column, or name + date of birth). Nothing is saved until you check the changes and press Apply. ${prog === "kids" ? "The original term sheet works too." : `Your own ${esc(PN)} register file works too – upload it as it is.`}</p>
-      <input type="file" id="xsFile" accept=".xlsx,.xls,.csv" class="inp"><div id="xsPrev"></div></div>`;
+      <input type="file" id="xsFile" accept=".xlsx,.xls,.csv" class="inp"><div id="xsPrev"></div></div>
+    <div class="box"><h3>3 · Upload history <small>saved on the server · who uploaded, when, and what changed</small></h3><div id="xsHist"><p class="note">Loading…</p></div></div>`;
   el.querySelector("#xsExport").onclick = e => exportBackup(e.currentTarget);
+  loadHistory(el.querySelector("#xsHist"));
   V.sb.from("acad_settings").select("value").eq("key", "last_import").maybeSingle().then(({ data }) => { const v = data && data.value, s = el.querySelector("#xsLast"); if (!v || !s) return;
     const d = new Date(v.at); s.textContent = `Last import ${d.getDate()} ${V.MON[d.getMonth()]}, ${d.getHours() % 12 || 12}:${String(d.getMinutes()).padStart(2, "0")} ${d.getHours() < 12 ? "am" : "pm"}${v.by ? " by " + v.by : ""} · ${v.added} added, ${v.updated} updated`; });
   el.querySelector("#xsFile").onchange = async e => {
