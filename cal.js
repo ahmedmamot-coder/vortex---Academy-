@@ -31,7 +31,7 @@ function classesOn(ds){
 async function loadReps(from, to){
   const V = X(), key = from + "|" + to; if (C.key === key && (C.reps || C.loading)) return;
   C.key = key; C.loading = true; C.reps = null;
-  const { data } = await V.sb.from("acad_reports").select("swimmer_id,week,data").gte("week", ymd(V.sundayOf(V.fromIso(from)))).lte("week", to);
+  const { data } = await V.allRows(() => V.sb.from("acad_reports").select("id,swimmer_id,week,data").gte("week", ymd(V.sundayOf(V.fromIso(from)))).lte("week", to));
   if (C.key !== key) return; C.loading = false; C.reps = {};
   (data || []).forEach(r => { C.reps[r.swimmer_id + "|" + r.week] = { att: (r.data && r.data.att) || [], abs: (r.data && r.data.abs) || [] }; }); V.render();
 }

@@ -86,6 +86,15 @@ const Store = {
     return null;
   }
 };
+/* The server returns at most 1000 rows per request – read big tables page by page */
+async function allRows(make, key){
+  const out = []; const size = 1000;
+  for (let from = 0; ; from += size) {
+    const { data, error } = await make().order(key || "id").range(from, from + size - 1);
+    if (error) return { data: out, error };
+    out.push(...(data || [])); if (!data || data.length < size) return { data: out, error: null };
+  }
+}
 function fail(e){ console.error(e); toast(e && e.message && /row-level|permission/i.test(e.message) ? "Not saved – you don't have access to change this" : "Not saved – check your connection and try again"); throw e; }
 async function write(path, data, partial){
   const p = path.split("/");
@@ -155,18 +164,18 @@ const reportOf = kid => S.reports[`${kid.cid}/${S.week}__${kid.id}`] || Object.e
 /* ---------- loading ---------- */
 async function loadBase(){
   const [c, k, st, se] = await Promise.all([
-    sb.from("acad_coaches").select("*"), sb.from("acad_swimmers").select("*").limit(10000),
+    sb.from("acad_coaches").select("*"), allRows(() => sb.from("acad_swimmers").select("*")),
     sb.from("acad_staff").select("*"), sb.from("acad_settings").select("*") ]);
   const err = c.error || k.error || st.error || se.error; if (err) { setStatus(err); throw err; }
   S.coaches = {}; c.data.forEach(r => { S.coaches[r.id] = { displayName: r.display_name, userId: r.user_id, placeholder: !r.user_id, partTime: !!r.part_time, classMinutes: r.class_minutes || 40, programs: r.programs || ["kids"] }; });
   S.allKids = {}; k.data.forEach(r => { const kd = toKid(r); S.allKids[`${kd.cid}/${kd.id}`] = kd; }); scopeKids();
   S.staff = {}; st.data.forEach(r => { S.staff[r.user_id] = { title: r.role[0].toUpperCase() + r.role.slice(1), name: r.display_name, email: r.email, active: r.active, managed: r.managed }; });
   se.data.forEach(r => { if (r.key === "term") S.term = r.value; if (r.key === "programs") { S.programs = r.value; applyPrograms(r.value); } });
-  if (S.me.mgmt) { const ph = await sb.from("acad_contacts").select("swimmer_id,phones").limit(10000); S.phones = {}; (ph.data || []).forEach(r => { S.phones[r.swimmer_id] = (r.phones || []).map(p => String(p).replace(/\D/g, "")); }); }
+  if (S.me.mgmt) { const ph = await allRows(() => sb.from("acad_contacts").select("swimmer_id,phones"), "swimmer_id"); S.phones = {}; (ph.data || []).forEach(r => { S.phones[r.swimmer_id] = (r.phones || []).map(p => String(p).replace(/\D/g, "")); }); }
   S.ready = true;
 }
 async function loadWeek(){
-  const [r, n] = await Promise.all([ sb.from("acad_reports").select("*").eq("week", S.week), sb.from("acad_notes").select("*").eq("week", S.week) ]);
+  const [r, n] = await Promise.all([ allRows(() => sb.from("acad_reports").select("*").eq("week", S.week)), allRows(() => sb.from("acad_notes").select("*").eq("week", S.week)) ]);
   if (r.error || n.error) return setStatus(r.error || n.error);
   S.reports = {}; r.data.forEach(x => { S.reports[`${x.coach_id}/${x.week}__${x.swimmer_id}`] = toRep(x); });
   S.notes = {}; n.data.forEach(x => { S.notes[`${x.coach_id}/${x.id.slice(x.coach_id.length + 2)}`] = { ...x.data, week: x.week, level: x.level }; });
@@ -256,7 +265,7 @@ function renderList(){
   const elsewhere = searching ? Object.entries(S.allKids).filter(([, k]) => kidProg(k) !== S.program && searchHit(k)).sort((a,b) => a[1].name.localeCompare(b[1].name)) : [];
   const all = S.allLv ? allLevelKids(true) : kidsInLevel(S.level, true), done = all.filter(isDone).length;
   $("#lvTitle").textContent = searching ? `Search: ${S.q}` : S.allLv ? "All levels" : `${L.short} · ${L.name}`;
-  $("#lvSub").textContent = searching ? `${ks.length} swimmer${ks.length===1?"":"s"} found in ${esc(PROGS[S.program].name)} (all levels and coaches)${elsewhere.length ? ` · ${elsewhere.length} in other programs` : ""}` : all.length ? `${done} of ${all.length} reports done this week` : L.goal;
+  $("#lvSub").textContent = searching ? `${ks.length} swimmer${ks.length===1?"":"s"} found in ${PROGS[S.program].name} (all levels and coaches)${elsewhere.length ? ` · ${elsewhere.length} in other programs` : ""}` : all.length ? `${done} of ${all.length} reports done this week` : L.goal;
   $("#progBar").style.width = !searching && all.length ? (done/all.length*100)+"%" : "0";
   if (!S.ready) { $("#list").innerHTML = `<div class="empty">Loading swimmers…</div>`; return; }
   const otherHtml = elsewhere.length ? `<div class="slot"><b>Found in other programs</b><span>Tap to switch program and open</span></div>` +
@@ -815,7 +824,7 @@ $("#wPrev").onclick = () => changeWeek(-1); $("#wNext").onclick = () => changeWe
 $("#meBtn").onclick = askName; $("#progBtn") && ($("#progBtn").onclick = () => pickProgram(true)); $("#teamBtn").onclick = () => adminSheet("people");
 $("#addBtn").onclick = addKids; $("#deckBtn") && ($("#deckBtn").onclick = () => { S.view = "deck"; render(); window.scrollTo(0, 0); }); $("#calBtn") && ($("#calBtn").onclick = () => { S.view = "calendar"; render(); window.scrollTo(0, 0); }); $("#notesBtn").onclick = groupNotes; $("#attBtn").onclick = attendance; $("#dlAllBtn").onclick = downloadAll;
 
-window.VX = { setProgram, pickProgram, allCoachIds, myProgs, S, sb, esc, openSheet, closeSheet, head, toast, mgmt, coachName, ageOf, fmtTime, timeVal, fromIso, iso, sundayOf, weekLabel, MON, DAYS, norm, visibleCoachIds, toRep, downloadPdfs, deliver, render, groupOf, loadBase, reportOf,
+window.VX = { allRows, setProgram, pickProgram, allCoachIds, myProgs, S, sb, esc, openSheet, closeSheet, head, toast, mgmt, coachName, ageOf, fmtTime, timeVal, fromIso, iso, sundayOf, weekLabel, MON, DAYS, norm, visibleCoachIds, toRep, downloadPdfs, deliver, render, groupOf, loadBase, reportOf,
   saveAtt: async (kid, i, v) => { const r = getReport(kid); r.abs = Array.isArray(r.abs) ? r.abs : [0,0,0,0,0,0,0]; r.att[i] = v === "P" || v === true ? 1 : 0; r.abs[i] = v === "A" ? 1 : 0; if (!r.attTotal && sessCount(kid)) r.attTotal = String(sessCount(kid)); r.updatedAt = Date.now(); r.updatedBy = S.me.id; await put(P.report(kid.cid, kid.id), r); },
   goWeek: ws => { S.week = iso(sundayOf(fromIso(ws))); S.reports = {}; S.notes = {}; S.view = "swimmers"; render(); loadWeek(); },
   goDay: ds => { const d = fromIso(ds); S.week = iso(sundayOf(d)); S.reports = {}; S.notes = {}; S.day = DAYS[d.getDay()]; ls.set("vx_day", S.day); S.view = "swimmers"; render(); loadWeek(); window.scrollTo(0, 0); } };

@@ -107,7 +107,7 @@ function classesFor(id, from, to, reps){
 async function loadReps(){
   const V = X(), key = T.from + "|" + T.to; if (T.key === key && (T.reps || T.loading)) return;
   T.key = key; T.loading = true; T.err = ""; T.reps = null;
-  const { data, error } = await V.sb.from("acad_reports").select("swimmer_id,week,data").gte("week", V.iso(V.sundayOf(V.fromIso(T.from)))).lte("week", T.to);
+  const { data, error } = await V.allRows(() => V.sb.from("acad_reports").select("id,swimmer_id,week,data").gte("week", V.iso(V.sundayOf(V.fromIso(T.from)))).lte("week", T.to));
   if (T.key !== key) return;
   T.loading = false; if (error) { T.err = error.message; T.reps = {}; } else { T.reps = {}; (data || []).forEach(r => { T.reps[r.swimmer_id + "|" + r.week] = (r.data && r.data.att) || []; }); }
   V.render();

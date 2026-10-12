@@ -73,7 +73,7 @@ function filtered(list){
 }
 async function loadContacts(){
   const V = X(); if (D.contacts || D.loading || !V.mgmt()) return; D.loading = true;
-  const { data } = await V.sb.from("acad_contacts").select("swimmer_id,phones").limit(5000);
+  const { data } = await V.allRows(() => V.sb.from("acad_contacts").select("swimmer_id,phones"), "swimmer_id");
   D.contacts = {}; (data || []).forEach(r => { D.contacts[r.swimmer_id] = r.phones || []; }); D.loading = false; V.render();
 }
 function render(){

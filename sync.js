@@ -62,8 +62,8 @@ const lvName = n => { const L = LEVELS[n - 1]; return L ? (L.reg ? L.reg : n <= 
 
 async function fetchAll(withReports){
   const V = X();
-  const q = [V.sb.from("acad_swimmers").select("*").eq("program", PG()).limit(10000), V.sb.from("acad_contacts").select("*").limit(10000)];
-  if (withReports) q.push(V.sb.from("acad_reports").select("swimmer_id,coach_id,week,level,done,reviewed_at,data").limit(30000));
+  const q = [V.allRows(() => V.sb.from("acad_swimmers").select("*").eq("program", PG())), V.allRows(() => V.sb.from("acad_contacts").select("*"), "swimmer_id")];
+  if (withReports) q.push(V.allRows(() => V.sb.from("acad_reports").select("id,swimmer_id,coach_id,week,level,done,reviewed_at,data")));
   const [s, c, r] = await Promise.all(q); if (s.error) throw s.error;
   const cm = {}; (c.data || []).forEach(x => { cm[x.swimmer_id] = x; });
   return { rows: s.data || [], cm, reps: r ? r.data || [] : [] };
