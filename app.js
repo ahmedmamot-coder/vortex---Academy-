@@ -458,13 +458,14 @@ async function adminSheet(tab){
   const freeCoaches = Object.keys(S.coaches).filter(c => !S.coaches[c].userId).sort((a,b) => coachName(a).localeCompare(coachName(b)));
   const staffRow = uid => { const s = S.staff[uid], cid = coachOf(uid), me = uid === S.me.id;
     return `<div class="person"><span class="av" style="background:${s.title === "Coach" ? "#067EEA" : "#1B2955"}">${esc((s.name||"?").replace(/^coach\s+/i,"").charAt(0).toUpperCase())}</span>
-      <div class="who"><b>${esc(s.name)}${me ? " (you)" : ""}${s.active ? "" : ` <span class="pill todo">Inactive</span>`}</b><span>${esc(s.email)}${cid ? ` · coaches as ${esc(coachName(cid))} (${swimmers(cid)} swimmers)` : ""}</span></div>
+      <div class="who"><b>${esc(s.name)}${me ? " (you)" : ""}${s.active ? "" : ` <span class="pill todo">Inactive</span>`}</b><span>${esc(s.email)}${cid ? ` · coaches as ${esc(coachName(cid))} (${swimmers(cid)} swimmers)` : ""}${ad ? ` · <i data-ls="${esc(uid)}" style="font-style:normal"></i>` : ""}</span></div>
       ${ad && !me ? `<select class="sel" data-role="${esc(uid)}" aria-label="Role">${TITLES.map(x => `<option ${x === s.title ? "selected" : ""}>${x}</option>`).join("")}</select>
         <button class="btn" data-more="${esc(uid)}" aria-label="More">⋯</button>` : `<span class="pill ${s.title === "Coach" ? "todo" : "rev"}">${esc(s.title)}</span>`}</div>
       ${ad && !me ? `<div class="more hide" id="more-${esc(uid)}">
         <label class="f">Swimmers come from coach<select class="inp" data-link="${esc(uid)}"><option value="">Not linked to a coach</option>${[cid, ...freeCoaches].filter(Boolean).map(c => `<option value="${esc(c)}" ${c===cid?"selected":""}>${esc(coachName(c))} · ${swimmers(c)} swimmers</option>`).join("")}</select></label>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
-          ${s.managed ? `<button class="btn" data-pw="${esc(uid)}">Set a new password</button>` : `<span class="note">Uses an existing Vortex login – they change their own password.</span>`}
+          <input class="inp" type="text" autocomplete="off" spellcheck="false" placeholder="New password (8+ characters)" data-pwv="${esc(uid)}" style="max-width:250px"><button class="btn" data-pw="${esc(uid)}">Set a new password</button>
+          ${s.managed ? "" : `<span class="note" style="flex-basis:100%">They also use this login for the Vortex club app – the new password works in both apps.</span>`}
           <button class="btn" data-act="${esc(uid)}">${s.active ? "Turn off access" : "Turn access back on"}</button></div></div>` : ""}`; };
   const tabs = ad ? `<div class="seg" role="group" aria-label="Section" style="align-self:flex-start">${[["people","People & logins"],["import","Import"],["programs","Levels & programmes"],["branding","Logo & mascots"],["excel","Excel sync"],["term","Term"]].map(([k,l]) => `<button data-tab="${k}" aria-pressed="${tab===k}">${l}</button>`).join("")}</div>` : "";
   let body = "";
@@ -479,7 +480,7 @@ async function adminSheet(tab){
       <label class="f">Temporary password<input class="inp" id="nuPw" type="text" autocomplete="off" placeholder="At least 8 characters"></label>
       <label class="f">Role<select class="inp" id="nuRole">${TITLES.map(x => `<option>${x}</option>`).join("")}</select></label></div>
       <label class="f" style="margin-top:10px">Their swimmers<select class="inp" id="nuCoach"><option value="">${"New coach with no swimmers yet"}</option>${freeCoaches.map(c => `<option value="${esc(c)}">${esc(coachName(c))} · ${swimmers(c)} swimmers</option>`).join("")}</select></label>
-      <p class="note">Give them the email and temporary password. They sign in and change it under their name (top right). If the email already has a Vortex club login, they keep that password.</p>
+      <p class="note">Give them the email and temporary password. They sign in and change it under their name (top right). If the email already has a Vortex club login, this password replaces it and works in both apps.</p>
       <button class="btn primary" id="nuGo" style="margin-top:6px">Create login</button></div>` : ""}
     <div class="box"><h3>Staff with logins <small>${staffIds.length}</small></h3>${staffIds.map(staffRow).join("") || `<p class="note">No logins yet.</p>`}</div>
     <div class="box"><h3>Coaches without a login <small>${freeCoaches.length}</small></h3>
@@ -528,8 +529,12 @@ async function adminSheet(tab){
     sh.addEventListener("click", async e => {
       const m = e.target.closest("[data-more]"); if (m) { $(`#more-${m.dataset.more}`).classList.toggle("hide"); return; }
       const mk = e.target.closest("[data-mk]"); if (mk) { $("#nuCoach").value = mk.dataset.mk; $("#nuName").value = coachName(mk.dataset.mk); $("#nuEmail").focus(); $("#nuName").scrollIntoView({ block: "center" }); return; }
-      const pw = e.target.closest("[data-pw]"); if (pw) { const v = prompt(`New password for ${S.staff[pw.dataset.pw].name} (at least 8 characters)`); if (!v) return;
-        try { await adminCall("set_password", { user_id: pw.dataset.pw, password: v }); toast("Password changed – tell them the new one"); } catch (er) { toast(er.message); } return; }
+      const pw = e.target.closest("[data-pw]"); if (pw) { const inp = sh.querySelector(`[data-pwv="${pw.dataset.pw}"]`), v = (inp && inp.value || "").trim();
+        if (v.length < 8) { toast("Type a new password of at least 8 characters first"); if (inp) inp.focus(); return; }
+        pw.disabled = true; pw.textContent = "Saving…";
+        try { await adminCall("set_password", { user_id: pw.dataset.pw, password: v }); S.staff[pw.dataset.pw].managed = true; inp.value = "";
+          pw.textContent = "Saved ✓"; toast(`${S.staff[pw.dataset.pw].name} can sign in now with the new password`); }
+        catch (er) { pw.disabled = false; pw.textContent = "Set a new password"; toast(er.message); } return; }
       const ac = e.target.closest("[data-act]"); if (ac) { const s = S.staff[ac.dataset.act];
         const { error } = await sb.from("acad_staff").update({ active: !s.active }).eq("user_id", ac.dataset.act); if (error) return toast(error.message); toast(s.active ? "Access turned off" : "Access turned on"); return reopen(); }
     });
@@ -538,10 +543,13 @@ async function adminSheet(tab){
       const l = e.target.closest("select[data-link]"); if (l) { try { await adminCall("link_coach", { user_id: l.dataset.link, coach_id: l.value }); toast("Saved"); reopen(); } catch (er) { toast(er.message); } }
     });
     if (ad) {
+      adminCall("login_status", {}).then(out => { const D = new Date(), fmt = t => { const d = new Date(t), days = Math.floor((D - d) / 864e5); return days < 1 ? "today" : days < 2 ? "yesterday" : `${d.getDate()} ${MON[d.getMonth()]}`; };
+        Object.entries(out.status || {}).forEach(([uid, x]) => { const el = sh.querySelector(`[data-ls="${uid}"]`); if (!el) return;
+          el.innerHTML = x.missing ? `<b style="color:#b4231f">login missing – recreate it</b>` : x.blocked ? `<b style="color:#b4231f">blocked – set a new password to unblock</b>` : !x.confirmed ? `<b style="color:#b4231f">not confirmed – set a new password to fix</b>` : x.last ? `last signed in ${fmt(x.last)}` : `<b style="color:#8a5a00">never signed in yet</b>`; }); }).catch(() => {});
       $("#nuGo").onclick = async ev => { const b = ev.currentTarget, name = $("#nuName").value.trim(), email = $("#nuEmail").value.trim(), password = $("#nuPw").value;
         if (!name || !email) return toast("Add a name and email"); b.disabled = true; b.textContent = "Creating…";
         try { const out = await adminCall("create_user", { name, email, password, role: $("#nuRole").value.toLowerCase(), coach_id: $("#nuCoach").value });
-          toast(out.existing ? "Done – they sign in with their existing Vortex password" : "Login created"); reopen(); }
+          toast(out.existing ? "Done – they already had a Vortex club login; the password you typed now works in both apps" : "Login created – they can sign in now"); reopen(); }
         catch (er) { toast(er.message); b.disabled = false; b.textContent = "Create login"; } };
       $("#phAdd").onclick = async () => { const n = $("#phName").value.trim(); if (!n) return $("#phName").focus();
         if (matchCoach(n)) return toast(`${n} is already in the list`);
