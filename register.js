@@ -88,6 +88,9 @@ async function open(kidId){
     const main = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a])[0];
     const cid = V.visibleCoachIds().find(id => V.norm(short(V.coachName(id))) === V.norm(main)) || (kidId && row.coach_id);
     if (!cid) return msg("Couldn't match the coach – check Admin settings → People & logins");
+    if (!kidId) { const nn = V.norm(name), same = Object.values(V.S.allKids || {}).filter(k => k.active !== false && V.norm(k.name) === nn);
+      if (same.length && b.dataset.dupOk !== nn) { b.dataset.dupOk = nn;
+        return msg(`${name} is already registered (${same.map(k => (PROGS[k.program || "kids"] || {}).short + " · " + V.coachName(k.cid)).join(", ")}). Search the name to open them, or press Save again if this is a different swimmer.`); } }
     b.disabled = true; b.textContent = "Saving…";
     const id = kidId || "k" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
     const pv = q("#rgPaid").value;
