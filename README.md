@@ -10,3 +10,5 @@ Static website (no build step). Data, logins and access rules live in the Supaba
 ## First sign-in
 Open the site → "First-time setup for the academy admin" → enter the one-time setup code, your name, email and a password.
 Then: Admin settings → Logo & mascots (upload logo + 5 mascots) and People & logins (create coach logins).
+
+Last deployed: 12 Oct 2026 – shared coaches and report notifications.
