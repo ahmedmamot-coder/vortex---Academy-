@@ -14,11 +14,11 @@ document.head.appendChild(st);
 
 const ymd = d => X().iso(d);
 function term(){ const t = X().S.term || {}; return { start: t.start || "", end: t.end || "", name: t.name || "Term" }; }
-function kidsInScope(){ const V = X(), mg = V.mgmt(); return Object.values(V.S.kids).filter(k => k.active !== false && (mg || k.cid === V.S.me.coachId)); }
+function kidsInScope(){ const V = X(), mg = V.mgmt(); return Object.values(V.S.kids).filter(k => k.active !== false && (mg || V.teaches(k, V.S.me.coachId))); }
 function classesOn(ds){
   const V = X(), d = V.fromIso(ds), day = WD[d.getDay()], wk = ymd(V.sundayOf(d)), di = d.getDay(), cls = {};
   kidsInScope().forEach(k => { if (k.startDate && k.startDate > ds) return;
-    (k.sessions || []).forEach(x => { if (x.day !== day) return;
+    (k.sessions || []).forEach(x => { if (x.day !== day) return; if (!V.mgmt() && !V.sessionIsMine(k, x, V.S.me.coachId)) return;
       const coach = (x.coach || V.coachName(k.cid).replace(/^coach\s+/i, "")).trim();
       if (C.coach !== "all" && !V.norm(coach).split(/[\/,&]+/).map(s => s.trim()).includes(C.coach)) return;
       const key = V.timeVal(x.time) + "|" + V.norm(coach);

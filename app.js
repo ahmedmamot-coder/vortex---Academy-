@@ -38,6 +38,13 @@ const coachName = cid => (S.coaches[cid] && S.coaches[cid].displayName) || S.nam
 const titleOf = id => { const st = S.staff[id] || (S.coaches[id] && S.staff[S.coaches[id].userId]); return st ? st.title : "Coach"; };
 const visibleCoachIds = () => { const has = new Set(Object.values(S.kids).map(k => k.cid));
   return Object.keys(S.coaches).filter(id => !S.coaches[id].linkedTo && ((S.coaches[id].programs || ["kids"]).includes(S.program) || has.has(id))); };
+/* a swimmer belongs to their main coach AND to every coach named in their schedule (e.g. Fri with Amira, Sat with Mizzy) */
+let coachByName = {};
+const buildCoachNames = () => { coachByName = {}; Object.keys(S.coaches).forEach(id => { const n = norm(S.coaches[id].displayName); if (n && !coachByName[n]) coachByName[n] = id; }); };
+const sessCoachIds = x => String((x && x.coach) || "").split(/[\/,&]+/).map(n => coachByName[norm(n)]).filter(Boolean);
+const kidCoaches = k => [...new Set([k.cid, ...(k.sessions || []).flatMap(sessCoachIds)])];
+const teaches = (k, cid) => !!cid && (k.cid === cid || (k.sessions || []).some(x => sessCoachIds(x).includes(cid)));
+const sessionIsMine = (k, x, cid) => { const ids = sessCoachIds(x); return ids.length ? ids.includes(cid) : k.cid === cid; };
 const allCoachIds = () => Object.keys(S.coaches).filter(id => !S.coaches[id].linkedTo);
 /* ---------- programs ---------- */
 const kidProg = k => k.program || "kids";
@@ -52,7 +59,7 @@ function setProgram(p){
   render();
 }
 const myProgs = () => { if (S.me.mgmt) return Object.keys(PROGS);
-  const c = S.coaches[S.me.coachId] || {}, set = new Set(c.programs || []); Object.values(S.allKids).forEach(k => { if (k.cid === S.me.coachId && k.active !== false) set.add(kidProg(k)); });
+  const c = S.coaches[S.me.coachId] || {}, set = new Set(c.programs || []); Object.values(S.allKids).forEach(k => { if (teaches(k, S.me.coachId) && k.active !== false) set.add(kidProg(k)); });
   const out = Object.keys(PROGS).filter(p => set.has(p)); return out.length ? out : ["kids"]; };
 function pickProgram(force){
   const list = myProgs(); if (!list.includes(S.program)) S.program = list[0];
@@ -167,7 +174,7 @@ async function loadBase(){
     sb.from("acad_coaches").select("*"), allRows(() => sb.from("acad_swimmers").select("*")),
     sb.from("acad_staff").select("*"), sb.from("acad_settings").select("*") ]);
   const err = c.error || k.error || st.error || se.error; if (err) { setStatus(err); throw err; }
-  S.coaches = {}; c.data.forEach(r => { S.coaches[r.id] = { displayName: r.display_name, userId: r.user_id, placeholder: !r.user_id, partTime: !!r.part_time, classMinutes: r.class_minutes || 40, programs: r.programs || ["kids"] }; });
+  S.coaches = {}; c.data.forEach(r => { S.coaches[r.id] = { displayName: r.display_name, userId: r.user_id, placeholder: !r.user_id, partTime: !!r.part_time, classMinutes: r.class_minutes || 40, programs: r.programs || ["kids"] }; }); buildCoachNames();
   S.allKids = {}; k.data.forEach(r => { const kd = toKid(r); S.allKids[`${kd.cid}/${kd.id}`] = kd; }); scopeKids();
   S.staff = {}; st.data.forEach(r => { S.staff[r.user_id] = { title: r.role[0].toUpperCase() + r.role.slice(1), name: r.display_name, email: r.email, active: r.active, managed: r.managed }; });
   se.data.forEach(r => { if (r.key === "term") S.term = r.value; if (r.key === "programs") { S.programs = r.value; applyPrograms(r.value); } });
@@ -185,7 +192,7 @@ function changeWeek(delta){ const d = fromIso(S.week); d.setDate(d.getDate() + 7
 
 /* ---------- derived ---------- */
 const activeCoach = () => mgmt() ? (S.coachSel !== "all" ? S.coachSel : null) : S.me.coachId;
-const inScope = k => k.active !== false && (!mgmt() || S.coachSel === "all" || k.cid === S.coachSel);
+const inScope = k => k.active !== false && (!mgmt() || S.coachSel === "all" || teaches(k, S.coachSel));
 const onDay = k => S.day === "all" || (k.sessions || []).some(x => x.day === S.day);
 function kidsInLevel(lvl, ignoreDay){
   return Object.values(S.kids).filter(k => inScope(k) && ((reportOf(k)?.level ?? k.level) === lvl) && (ignoreDay || onDay(k)))
@@ -286,7 +293,7 @@ function renderList(){
   }).join("");
 }
 function renderOverview(){
-  const ids = visibleCoachIds().filter(id => !(MG.includes(titleOf(id)) && !Object.values(S.kids).some(k => k.cid === id && k.active !== false))).sort((a,b) => coachName(a).localeCompare(coachName(b)));
+  const ids = visibleCoachIds().filter(id => !(MG.includes(titleOf(id)) && !Object.values(S.kids).some(k => teaches(k, id) && k.active !== false))).sort((a,b) => coachName(a).localeCompare(coachName(b)));
   const all = Object.values(S.kids).filter(k => k.active !== false);
   const doneN = all.filter(isDone).length, revN = all.filter(k => statusOf(k) === "rev").length, todoN = all.filter(k => statusOf(k) === "todo").length;
   const cell = (d,t) => `<span class="c ${!t ? "z" : d===t ? "f" : "p"}">${t ? `${d}/${t}` : "–"}</span>`;
@@ -299,7 +306,7 @@ function renderOverview(){
       <div class="kpi"><b>${revN}</b><span>Reviewed · ${todoN} not started</span></div>
     </div>
     <div class="ov"><table><thead><tr><th>Coach</th>${progLevels().map(n=>`<th>${LEVELS[n-1].code}</th>`).join("")}<th>Total</th><th>Reviewed</th></tr></thead><tbody>
-    ${ids.length ? ids.map(id => { const ks = all.filter(k => k.cid === id);
+    ${ids.length ? ids.map(id => { const ks = all.filter(k => teaches(k, id));
       const per = progLevels().map(n => { const l = ks.filter(k => (reportOf(k)?.level ?? k.level) === n); return cell(l.filter(isDone).length, l.length); });
       return `<tr class="click" data-c="${esc(id)}"><td><b>${esc(coachName(id))}</b><br><span class="note">${esc(titleOf(id))}</span></td>${per.map(p=>`<td>${p}</td>`).join("")}
         <td>${cell(ks.filter(isDone).length, ks.length)}</td><td>${ks.filter(k => statusOf(k)==="rev").length}</td></tr>`; }).join("")
@@ -367,7 +374,7 @@ function groupNotes(){
 function attendance(){
   if (S.allLv) return toast("Choose a level first");
   const cid = needCoach(); if (!cid) return;
-  const lvl = S.level, L = LEVELS[lvl-1], ks = kidsInLevel(lvl).filter(k => k.cid === cid);
+  const lvl = S.level, L = LEVELS[lvl-1], ks = kidsInLevel(lvl).filter(k => teaches(k, cid));
   if (!ks.length) return toast("Add swimmers to this level first");
   const work = Object.fromEntries(ks.map(k => [k.id, getReport(k)]));
   const tot = notesFor(cid, lvl).total ?? "";
@@ -452,7 +459,7 @@ function matchCoach(name){
 
 async function adminSheet(tab){
   const ad = S.me.admin;
-  const swimmers = id => Object.values(S.kids).filter(k => k.cid === id && k.active !== false).length;
+  const swimmers = id => Object.values(S.kids).filter(k => teaches(k, id) && k.active !== false).length;
   const staffIds = Object.keys(S.staff).sort((a,b) => (S.staff[a].name||"").localeCompare(S.staff[b].name||""));
   const coachOf = uid => Object.keys(S.coaches).find(c => S.coaches[c].userId === uid);
   const freeCoaches = Object.keys(S.coaches).filter(c => !S.coaches[c].userId).sort((a,b) => coachName(a).localeCompare(coachName(b)));
@@ -643,7 +650,7 @@ let sample = null;
 function openKid(key){
   const kid = S.kids[key]; if (!kid) return;
   const cid = kid.cid, id = kid.id; let r = getReport(kid); const lvl = r.level, L = LEVELS[lvl-1], gn = notesFor(cid, lvl);
-  const editable = mgmt() || cid === S.me.coachId;
+  const editable = mgmt() || teaches(kid, S.me.coachId);
   let dirty = false, timer = null;
   const flush = async () => { clearTimeout(timer); if (!dirty) return; dirty = false; r.updatedAt = Date.now(); r.updatedBy = S.me.id;
     await put(P.report(cid, id), r);
@@ -657,7 +664,7 @@ function openKid(key){
   const coachIds = visibleCoachIds();
   const reviewed = r.reviewedAt ? `Reviewed${r.reviewedBy && S.coaches[r.reviewedBy] ? " by " + coachName(r.reviewedBy) : ""}` : "";
 
-  openSheet(`${head(kid.name, `${L.short} · ${L.name} · ${coachName(cid)}`, lvl)}
+  openSheet(`${head(kid.name, `${L.short} · ${L.name} · ${kidCoaches(kid).map(coachName).join(" & ")}`, lvl)}
   <div class="sh-body">
     ${mgmt() ? `<div class="box hide" id="contactBox" style="--c:var(--sky)"></div>` : ""}
     ${reviewed ? `<div class="box" style="--c:var(--royal)"><h3>${esc(reviewed)}</h3><p class="note" style="margin:0">Management has checked this report.</p></div>` : ""}
@@ -832,9 +839,11 @@ $("#wPrev").onclick = () => changeWeek(-1); $("#wNext").onclick = () => changeWe
 $("#meBtn").onclick = askName; $("#progBtn") && ($("#progBtn").onclick = () => pickProgram(true)); $("#teamBtn").onclick = () => adminSheet("people");
 $("#addBtn").onclick = addKids; $("#deckBtn") && ($("#deckBtn").onclick = () => { S.view = "deck"; render(); window.scrollTo(0, 0); }); $("#calBtn") && ($("#calBtn").onclick = () => { S.view = "calendar"; render(); window.scrollTo(0, 0); }); $("#notesBtn").onclick = groupNotes; $("#attBtn").onclick = attendance; $("#dlAllBtn").onclick = downloadAll;
 
-window.VX = { allRows, setProgram, pickProgram, allCoachIds, myProgs, S, sb, esc, openSheet, closeSheet, head, toast, mgmt, coachName, ageOf, fmtTime, timeVal, fromIso, iso, sundayOf, weekLabel, MON, DAYS, norm, visibleCoachIds, toRep, downloadPdfs, deliver, render, groupOf, loadBase, reportOf,
+window.VX = { teaches, kidCoaches, sessionIsMine, allRows, setProgram, pickProgram, allCoachIds, myProgs, S, sb, esc, openSheet, closeSheet, head, toast, mgmt, coachName, ageOf, fmtTime, timeVal, fromIso, iso, sundayOf, weekLabel, MON, DAYS, norm, visibleCoachIds, toRep, downloadPdfs, deliver, render, groupOf, loadBase, reportOf,
   saveAtt: async (kid, i, v) => { const r = getReport(kid); r.abs = Array.isArray(r.abs) ? r.abs : [0,0,0,0,0,0,0]; r.att[i] = v === "P" || v === true ? 1 : 0; r.abs[i] = v === "A" ? 1 : 0; if (!r.attTotal && sessCount(kid)) r.attTotal = String(sessCount(kid)); r.updatedAt = Date.now(); r.updatedBy = S.me.id; await put(P.report(kid.cid, kid.id), r); },
-  goWeek: ws => { S.week = iso(sundayOf(fromIso(ws))); S.reports = {}; S.notes = {}; S.view = "swimmers"; render(); loadWeek(); },
+  goWeek: ws => { S.week = iso(sundayOf(fromIso(ws))); S.reports = {}; S.notes = {}; S.view = "swimmers"; render(); return loadWeek(); },
+  openReport: async (sid, week) => { const e = Object.entries(S.allKids).find(([, k]) => k.id === sid); if (!e) return toast("This swimmer is no longer in the active list");
+    if (kidProg(e[1]) !== S.program) setProgram(kidProg(e[1])); S.week = iso(sundayOf(fromIso(week || S.week))); S.reports = {}; S.notes = {}; S.view = "swimmers"; render(); await loadWeek(); openKid(e[0]); },
   goDay: ds => { const d = fromIso(ds); S.week = iso(sundayOf(d)); S.reports = {}; S.notes = {}; S.day = DAYS[d.getDay()]; ls.set("vx_day", S.day); S.view = "swimmers"; render(); loadWeek(); window.scrollTo(0, 0); } };
 
 /* ---------- account, login, boot ---------- */

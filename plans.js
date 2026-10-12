@@ -51,7 +51,7 @@ const blankLesson = (n, lvl) => ({ title: n, focus: "", warm: [], main: [], cool
 const blankPlan = lvl => ({ count: 2, lessons: [blankLesson("Lesson 1", lvl), blankLesson("Lesson 2", lvl), blankLesson("Lesson 3", lvl)], makeup: blankLesson("Make-up lesson", lvl), notes: "" });
 const lessonsOf = p => p.lessons.slice(0, p.count).concat([p.makeup]);
 const mins = l => ["warm", "main", "cool"].reduce((a, k) => a + l[k].reduce((s, d) => s + (+d.min || 0), 0), 0) + l.finish.items.reduce((s, d) => s + (+d.min || 0), 0);
-function coachLevels(cid){ const V = X(), s = new Set(); Object.values(V.S.kids).forEach(k => { if (k.active !== false && k.cid === cid) s.add(k.level); }); return [...s].sort((a, b) => a - b); }
+function coachLevels(cid){ const V = X(), s = new Set(); Object.values(V.S.kids).forEach(k => { if (k.active !== false && V.teaches(k, cid)) s.add(k.level); }); return [...s].sort((a, b) => a - b); }
 function curCoach(){ const V = X(); return V.mgmt() ? (V.S.coachSel !== "all" ? V.S.coachSel : "") : V.S.me.coachId; }
 async function loadCustom(){ const V = X(); if (P.custom) return; P.custom = []; const { data } = await V.sb.from("acad_drills").select("*").order("created_at", { ascending: false }).limit(1000); P.custom = data || []; }
 async function loadPlan(){

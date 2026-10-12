@@ -56,8 +56,8 @@ function entries(){
   const V = X(), mg = V.mgmt(), out = [];
   Object.values(V.S.kids).forEach(k => {
     if (k.active === false) return;
-    if (!mg && k.cid !== V.S.me.coachId) return;
-    (k.sessions || []).forEach(x => { if (x.day !== D.day) return;
+    if (!mg && !V.teaches(k, V.S.me.coachId)) return;
+    (k.sessions || []).forEach(x => { if (x.day !== D.day) return; if (!mg && !V.sessionIsMine(k, x, V.S.me.coachId)) return;
       out.push({ kid: k, time: x.time, tv: V.timeVal(x.time), lane: x.lane || "", coach: (x.coach || V.coachName(k.cid).replace(/^coach\s+/i, "")).trim() }); });
   });
   return out;
@@ -82,7 +82,7 @@ function render(){
   if (mg) loadContacts();
   const all = entries(), list = filtered(all);
   const coaches = [...new Set(all.flatMap(e => V.norm(e.coach).split(/[\/,&]+/).map(s => s.trim())).filter(Boolean))].sort();
-  const counts = {}; Object.values(V.S.kids).forEach(k => { if (k.active === false || (!mg && k.cid !== V.S.me.coachId)) return; (k.sessions || []).forEach(x => { counts[x.day] = (counts[x.day] || 0) + 1; }); });
+  const counts = {}; Object.values(V.S.kids).forEach(k => { if (k.active === false || (!mg && !V.teaches(k, V.S.me.coachId))) return; (k.sessions || []).forEach(x => { if (!mg && !V.sessionIsMine(k, x, V.S.me.coachId)) return; counts[x.day] = (counts[x.day] || 0) + 1; }); });
   const LVC = ["#1B22E4", "#067EEA", "#8F23D7", "#0E9F7A", "#1B2955", "#E46AA8", "#C2489A", "#9B2C86", "#F08A24"];
   const lvl = k => { const L = LEVELS[k.level - 1] || {}; return `<span class="lvb" style="--lc:${LVC[(k.level - 1) % 9]}">${esc(L.code || "")}</span><span class="lvn">${esc(L.name || "")}</span>`; };
   const paid = k => k.paid === true ? `<span class="pd y">Paid</span>` : k.paid === false ? `<span class="pd n">Not paid</span>` : "";

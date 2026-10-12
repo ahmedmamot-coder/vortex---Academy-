@@ -17,7 +17,7 @@ async function loadSubs(week, force){
   T.subs[week] = {}; (data || []).forEach(r => { T.subs[week][r.coach_id] = r; }); T.subsLoading[week] = false; V.render();
 }
 function coachCounts(cid){
-  const V = X(), ks = Object.values(V.S.kids).filter(k => k.cid === cid && k.active !== false);
+  const V = X(), ks = Object.values(V.S.kids).filter(k => V.teaches(k, cid) && k.active !== false);
   const done = ks.filter(k => { const r = V.S.reports[`${k.cid}/${V.S.week}__${k.id}`]; return r && (r.done || r.reviewedAt); });
   return { ks, done };
 }
