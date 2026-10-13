@@ -915,7 +915,12 @@ function showLogin(msg, signedIn){
   if (!me || !me.active) return showLogin(me ? "Your access is turned off. Ask an academy admin." : "This login isn't set up for academy reports yet. Ask an academy admin to create your access.", true);
   S.me.role = me.role; S.me.name = me.display_name; S.me.mgmt = me.role !== "coach"; S.me.admin = me.role === "admin";
   if (!S.me.mgmt) S.view = "swimmers";
-  try { await loadBase(); } catch { return; }
+  // if the server is busy, keep retrying (2s, 4s, 8s … up to 30s) instead of staying on "Loading swimmers…"
+  for (let i = 0; ; i++) {
+    try { await loadBase(); break; }
+    catch (e) { const wait = Math.min(30, 2 ** (i + 1)); const st = $("#status span"); if (st) st.textContent = `Server busy – trying again in ${wait}s…`;
+      await new Promise(r => setTimeout(r, wait * 1000)); }
+  }
   S.me.coachId = Object.keys(S.coaches).find(c => S.coaches[c].userId === S.me.id) || null;
   setProgram(S.program); pickProgram(); setStatus(); render(); loadWeek();
   setInterval(() => { if (!document.hidden && !$("#layer").innerHTML) { loadBase().then(render).catch(() => {}); loadWeek(); } }, 60000);
